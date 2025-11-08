@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { JwtModule } from './jwt/jwt.module';
 import { CryptoModule } from './crypto/crypto.module';
+import { LanguageModule } from './language/language.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { CryptoModule } from './crypto/crypto.module';
     AuthModule,
     PrismaModule,
     JwtModule,
-    CryptoModule
+    CryptoModule,
+    LanguageModule
   ],
   controllers: [AppController],
   providers: [AppService],
