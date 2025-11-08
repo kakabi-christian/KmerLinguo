@@ -1,79 +1,100 @@
 // backend/src/email/email.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { Transporter } from 'nodemailer';
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
   private transporter: Transporter;
 
-  constructor(private configService: ConfigService) {
-    // Créez le transporteur Nodemailer en utilisant les variables d'environnement
-    this.transporter = nodemailer.createTransport({
-      service: this.configService.get<string>('EMAIL_SERVICE'),
-      auth: {
-        user: this.configService.get<string>('EMAIL_USER'),
-        pass: this.configService.get<string>('EMAIL_PASS'),
+  constructor(private readonly configService: ConfigService) {
+    try {
+      const emailService = this.configService.get<string>('EMAIL_SERVICE');
+      const emailUser = this.configService.get<string>('EMAIL_USER');
+      const emailPass = this.configService.get<string>('EMAIL_PASS');
+
+      // Configuration flexible (Gmail, Outlook, etc.)
+      this.transporter = nodemailer.createTransport({
+        service: emailService || 'gmail',
+        auth: {
+          user: emailUser,
+          pass: emailPass,
+        },
+            tls: {
+        rejectUnauthorized: false, // ⚠️ autorise les certificats auto-signés
       },
-    });
+      });
+
+      this.transporter.verify((error, success) => {
+        if (error) {
+          this.logger.error('Email transporter configuration error:', error.message);
+        } else {
+          this.logger.log('Email transporter is ready to send messages ✅');
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error during transporter initialization:', error.message);
+    }
   }
 
-  async sendVerificationEmail(to: string, code: string) {
-    const mailOptions = {
-      from: this.configService.get<string>('EMAIL_USER'),
-      to: to,
-      subject: 'Votre code de vérification',
-      html: `<p>Bonjour,</p>
-             <p>Voici votre code de vérification : <strong>${code}</strong></p>
-             <p>Ce code expire dans 10 minutes.</p>`,
-    };
+  private async sendMail(to: string, subject: string, html: string) {
+    const from = this.configService.get<string>('EMAIL_USER');
+    const mailOptions = { from, to, subject, html };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log(`Email de vérification envoyé à ${to}`);
+      this.logger.log(`Email sent to ${to} with subject: "${subject}"`);
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail:", error);
+      this.logger.error(`Failed to send email to ${to}: ${error.message}`);
+      throw new Error('Email sending failed');
+    }
+  }
+
+  async sendVerificationEmail(to: string, code: string) {
+    try {
+      const subject = 'Your verification code';
+      const html = `
+        <p>Hello,</p>
+        <p>Your verification code is: <strong>${code}</strong></p>
+        <p>This code will expire in <strong>10 minutes</strong>.</p>
+      `;
+      await this.sendMail(to, subject, html);
+    } catch (error) {
+      this.logger.error(`Error in sendVerificationEmail: ${error.message}`);
     }
   }
 
   async resendVerificationEmail(to: string, code: string) {
-    const mailOptions = {
-      from: this.configService.get<string>('EMAIL_USER'),
-      to,
-      subject: 'Réenvoi du code de vérification',
-      html: `<p>Bonjour,</p>
-           <p>Voici votre nouveau code de vérification : <strong>${code}</strong></p>
-           <p>Ce code expire dans 10 minutes.</p>`,
-    };
-
     try {
-      await this.transporter.sendMail(mailOptions);
-      console.log(`Code de vérification renvoyé à ${to}`);
+      const subject = 'Resend verification code';
+      const html = `
+        <p>Hello,</p>
+        <p>Your new verification code is: <strong>${code}</strong></p>
+        <p>This code will expire in <strong>10 minutes</strong>.</p>
+      `;
+      await this.sendMail(to, subject, html);
     } catch (error) {
-      console.error("Erreur lors du renvoi de l'email:", error);
+      this.logger.error(`Error in resendVerificationEmail: ${error.message}`);
     }
   }
 
   async sendResetPasswordEmail(to: string, resetToken: string) {
-    const mailOptions = {
-      from: this.configService.get<string>('EMAIL_USER'),
-      to,
-      subject: 'Réinitialisation de votre mot de passe',
-      html: `<p>Bonjour,</p>
-           <p>Pour réinitialiser votre mot de passe, cliquez sur le lien ci-dessous :</p>
-           <a href="https://tonfrontend.com/reset-password?token=${resetToken}">Réinitialiser mon mot de passe</a>
-           <p>Ce lien est valable pendant 30 minutes.</p>`,
-    };
-
     try {
-      await this.transporter.sendMail(mailOptions);
-      console.log(`Email de réinitialisation envoyé à ${to}`);
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+      const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+      const subject = 'Reset your password';
+      const html = `
+        <p>Hello,</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}" target="_blank">${resetLink}</a>
+        <p>This link will expire in <strong>30 minutes</strong>.</p>
+      `;
+      await this.sendMail(to, subject, html);
     } catch (error) {
-      console.error(
-        "Erreur lors de l'envoi de l'email de réinitialisation:",
-        error,
-      );
+      this.logger.error(`Error in sendResetPasswordEmail: ${error.message}`);
     }
   }
 }

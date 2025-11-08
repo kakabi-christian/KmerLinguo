@@ -8,14 +8,14 @@ import { Role } from '@prisma/client'; // enum Role { USER, ADMIN }
 
 export interface RequestWithUser extends Request {
   user?: {
-    id: number;
+    id: string;  // 🔹 changé de number à string pour UUID
     email: string;
     role: Role;
   };
 }
 
 interface JwtPayload {
-  sub: number; // correspond à User.id
+  sub: string; // 🔹 changé de number à string pour UUID
   email: string;
   role: Role;
   iat?: number;
@@ -59,7 +59,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // 🔹 Vérifier si l'utilisateur existe dans la base
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
+      where: { id: payload.sub },  // 🔹 UUID string
     });
 
     if (!user || !user.isVerified) {

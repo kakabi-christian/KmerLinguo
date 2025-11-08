@@ -2,21 +2,22 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-provider = "postgresql"
-url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
   ADMIN
   USER
 }
+
 // ------------------ Users ------------------
 model User {
-  id          Int              @id @default(autoincrement())
+  id          String           @id @default(uuid())
   firstName   String
   lastName    String
   email       String           @unique
@@ -42,11 +43,11 @@ model User {
 
 // ------------------ UserPreference ------------------
 model UserPreference {
-  id               Int      @id @default(autoincrement())
+  id               String   @id @default(uuid())
   user             User     @relation(fields: [userId], references: [id])
-  userId           Int
+  userId           String
   targetLanguage   Language @relation(fields: [targetLanguageId], references: [id])
-  targetLanguageId Int
+  targetLanguageId String
   minutesPerDay    Int
   goal             String
   referralSource   String
@@ -55,17 +56,18 @@ model UserPreference {
 
 // ------------------ Language ------------------
 model Language {
-  id               Int              @id @default(autoincrement())
+  id               String           @id @default(uuid())
   name             String
   languageCode     String
 
-  userPreferences  UserPreference[] 
+  userPreferences  UserPreference[]
 }
+
 // ------------------ Series ------------------
 model Series {
-  id               Int      @id @default(autoincrement())
+  id               String   @id @default(uuid())
   user             User     @relation(fields: [userId], references: [id])
-  userId           Int
+  userId           String
   date             DateTime
   lessonsCompleted Int
   learningTime     Int
@@ -75,7 +77,7 @@ model Series {
 
 // ------------------ Division ------------------
 model Division {
-  id             Int    @id @default(autoincrement())
+  id             String    @id @default(uuid())
   name           String
   pointThreshold Int
   order          Int
@@ -85,23 +87,23 @@ model Division {
 
 // ------------------ Ranking ------------------
 model Ranking {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   user        User     @relation(fields: [userId], references: [id])
-  userId      Int
+  userId      String
   point       Point    @relation(fields: [pointId], references: [id])
-  pointId     Int
+  pointId     String
   rank        Int
   division    Division @relation(fields: [divisionId], references: [id])
-  divisionId  Int
+  divisionId  String
   periodStart DateTime
   periodEnd   DateTime
 }
 
 // ------------------ Point ------------------
 model Point {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   user      User     @relation(fields: [userId], references: [id])
-  userId    Int
+  userId    String
   value     Int
   source    String
   updatedAt DateTime @default(now())
@@ -111,9 +113,9 @@ model Point {
 
 // ------------------ Notification ------------------
 model Notification {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   user        User     @relation(fields: [userId], references: [id])
-  userId      Int
+  userId      String
   type        String
   message     String
   isRead      Boolean  @default(false)
@@ -123,18 +125,18 @@ model Notification {
 
 // ------------------ Subscription ------------------
 model Subscription {
-  id             Int      @id @default(autoincrement())
+  id             String   @id @default(uuid())
   user           User     @relation("follower", fields: [userId], references: [id])
-  userId         Int
+  userId         String
   followedUser   User     @relation("followed", fields: [followedUserId], references: [id])
-  followedUserId Int
+  followedUserId String
   subscribedAt   DateTime @default(now())
   isActive       Boolean  @default(true)
 }
 
 // ------------------ Module / Chapter / Lesson ------------------
 model Module {
-  id          Int       @id @default(autoincrement())
+  id          String   @id @default(uuid())
   title       String
   description String
   order       Int
@@ -142,19 +144,19 @@ model Module {
 }
 
 model Chapter {
-  id       Int      @id @default(autoincrement())
-  module   Module   @relation(fields: [moduleId], references: [id])
-  moduleId Int
-  title    String
+  id        String   @id @default(uuid())
+  module    Module   @relation(fields: [moduleId], references: [id])
+  moduleId  String
+  title     String
   objective String
-  order    Int
-  lessons  Lesson[]
+  order     Int
+  lessons   Lesson[]
 }
 
 model Lesson {
-  id        Int       @id @default(autoincrement())
-  chapter   Chapter   @relation(fields: [chapterId], references: [id])
-  chapterId Int
+  id        String   @id @default(uuid())
+  chapter   Chapter  @relation(fields: [chapterId], references: [id])
+  chapterId String
   title     String
   objective String
   order     Int
@@ -163,11 +165,11 @@ model Lesson {
 
 // ------------------ Question / Answer ------------------
 model Question {
-  id               Int       @id @default(autoincrement())
-  lesson           Lesson    @relation(fields: [lessonId], references: [id])
-  lessonId         Int
+  id               String       @id @default(uuid())
+  lesson           Lesson       @relation(fields: [lessonId], references: [id])
+  lessonId         String
   text             String
-  correctAnswerId  Int?
+  correctAnswerId  String?
   order            Int
   audioPath        String?
   imagePath        String?
@@ -176,9 +178,9 @@ model Question {
 }
 
 model Answer {
-  id         Int      @id @default(autoincrement())
+  id         String   @id @default(uuid())
   question   Question @relation(fields: [questionId], references: [id])
-  questionId Int
+  questionId String
   text       String
   isCorrect  Boolean
   order      Int
@@ -186,32 +188,32 @@ model Answer {
 
 // ------------------ Progression ------------------
 model Progression {
-  id            Int      @id @default(autoincrement())
+  id            String   @id @default(uuid())
   user          User     @relation(fields: [userId], references: [id])
-  userId        Int
+  userId        String
   question      Question @relation(fields: [questionId], references: [id])
-  questionId    Int
-  lessonId      Int
+  questionId    String
+  lessonId      String
   userAnswer    String?
-  userVoicePath String?   // Stockage audio de l'utilisateur
+  userVoicePath String?
   isCorrect     Boolean
-  answeredAt    DateTime  @default(now())
+  answeredAt    DateTime @default(now())
 }
 
 // ------------------ Wallet / Transaction / Reward ------------------
 model Wallet {
-  id          Int      @id @default(autoincrement())
-  userId      Int      @unique             // 🔑 important : unique pour one-to-one
-  user        User     @relation(fields: [userId], references: [id])
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id])
   balance     String
-  lastUpdated DateTime @default(now())
+  lastUpdated DateTime     @default(now())
   transactions Transaction[]
 }
 
 model Transaction {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   wallet    Wallet   @relation(fields: [walletId], references: [id])
-  walletId  Int
+  walletId  String
   type      String
   amount    Float
   status    String
@@ -219,9 +221,9 @@ model Transaction {
 }
 
 model Reward {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   user        User     @relation(fields: [userId], references: [id])
-  userId      Int
+  userId      String
   type        String
   points      Int
   description String
@@ -230,11 +232,10 @@ model Reward {
 
 // ------------------ Feedback ------------------
 model Feedback {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   user      User     @relation(fields: [userId], references: [id])
-  userId    Int
+  userId    String
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
 }
-
