@@ -1,0 +1,240 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+provider = "prisma-client-js"
+}
+
+datasource db {
+provider = "postgresql"
+url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+// ------------------ Users ------------------
+model User {
+  id          Int              @id @default(autoincrement())
+  firstName   String
+  lastName    String
+  email       String           @unique
+  phone       String           @unique
+  passwordHash String
+  isVerified  Boolean          @default(false)
+  role        Role             @default(USER)
+  createdAt   DateTime         @default(now())
+  lastLogin   DateTime?
+
+  preferences UserPreference[]
+  series      Series[]
+  points      Point[]
+  rankings    Ranking[]
+  subscriptionsFollowed Subscription[] @relation("followed")
+  subscriptionsFollowing Subscription[] @relation("follower")
+  progressions Progression[]
+  wallet      Wallet?
+  rewards     Reward[]
+  feedbacks   Feedback[]
+  notifications Notification[]
+}
+
+// ------------------ UserPreference ------------------
+model UserPreference {
+  id               Int      @id @default(autoincrement())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           Int
+  targetLanguage   Language @relation(fields: [targetLanguageId], references: [id])
+  targetLanguageId Int
+  minutesPerDay    Int
+  goal             String
+  referralSource   String
+  createdAt        DateTime @default(now())
+}
+
+// ------------------ Language ------------------
+model Language {
+  id               Int              @id @default(autoincrement())
+  name             String
+  languageCode     String
+
+  userPreferences  UserPreference[] 
+}
+// ------------------ Series ------------------
+model Series {
+  id               Int      @id @default(autoincrement())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           Int
+  date             DateTime
+  lessonsCompleted Int
+  learningTime     Int
+  currentSeries    Boolean  @default(true)
+  streakBonus      Int?
+}
+
+// ------------------ Division ------------------
+model Division {
+  id             Int    @id @default(autoincrement())
+  name           String
+  pointThreshold Int
+  order          Int
+
+  rankings       Ranking[]
+}
+
+// ------------------ Ranking ------------------
+model Ranking {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  point       Point    @relation(fields: [pointId], references: [id])
+  pointId     Int
+  rank        Int
+  division    Division @relation(fields: [divisionId], references: [id])
+  divisionId  Int
+  periodStart DateTime
+  periodEnd   DateTime
+}
+
+// ------------------ Point ------------------
+model Point {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  value     Int
+  source    String
+  updatedAt DateTime @default(now())
+
+  rankings  Ranking[]
+}
+
+// ------------------ Notification ------------------
+model Notification {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  type        String
+  message     String
+  isRead      Boolean  @default(false)
+  isBroadcast Boolean  @default(false)
+  sentAt      DateTime @default(now())
+}
+
+// ------------------ Subscription ------------------
+model Subscription {
+  id             Int      @id @default(autoincrement())
+  user           User     @relation("follower", fields: [userId], references: [id])
+  userId         Int
+  followedUser   User     @relation("followed", fields: [followedUserId], references: [id])
+  followedUserId Int
+  subscribedAt   DateTime @default(now())
+  isActive       Boolean  @default(true)
+}
+
+// ------------------ Module / Chapter / Lesson ------------------
+model Module {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  order       Int
+  chapters    Chapter[]
+}
+
+model Chapter {
+  id       Int      @id @default(autoincrement())
+  module   Module   @relation(fields: [moduleId], references: [id])
+  moduleId Int
+  title    String
+  objective String
+  order    Int
+  lessons  Lesson[]
+}
+
+model Lesson {
+  id        Int       @id @default(autoincrement())
+  chapter   Chapter   @relation(fields: [chapterId], references: [id])
+  chapterId Int
+  title     String
+  objective String
+  order     Int
+  questions Question[]
+}
+
+// ------------------ Question / Answer ------------------
+model Question {
+  id               Int       @id @default(autoincrement())
+  lesson           Lesson    @relation(fields: [lessonId], references: [id])
+  lessonId         Int
+  text             String
+  correctAnswerId  Int?
+  order            Int
+  audioPath        String?
+  imagePath        String?
+  answers          Answer[]
+  progressions     Progression[]
+}
+
+model Answer {
+  id         Int      @id @default(autoincrement())
+  question   Question @relation(fields: [questionId], references: [id])
+  questionId Int
+  text       String
+  isCorrect  Boolean
+  order      Int
+}
+
+// ------------------ Progression ------------------
+model Progression {
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id])
+  userId        Int
+  question      Question @relation(fields: [questionId], references: [id])
+  questionId    Int
+  lessonId      Int
+  userAnswer    String?
+  userVoicePath String?   // Stockage audio de l'utilisateur
+  isCorrect     Boolean
+  answeredAt    DateTime  @default(now())
+}
+
+// ------------------ Wallet / Transaction / Reward ------------------
+model Wallet {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique             // 🔑 important : unique pour one-to-one
+  user        User     @relation(fields: [userId], references: [id])
+  balance     String
+  lastUpdated DateTime @default(now())
+  transactions Transaction[]
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  wallet    Wallet   @relation(fields: [walletId], references: [id])
+  walletId  Int
+  type      String
+  amount    Float
+  status    String
+  date      DateTime @default(now())
+}
+
+model Reward {
+  id          Int      @id @default(autoincrement())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+  type        String
+  points      Int
+  description String
+  grantedAt   DateTime @default(now())
+}
+
+// ------------------ Feedback ------------------
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+}
+
