@@ -19,7 +19,7 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 export class LessonController {
   constructor(private readonly lessonService: LessonService) {}
 
-  @Post()
+  @Post('create')
   @Roles('ADMIN')
   create(@Body() data: CreateLessonDto) {
     return this.lessonService.create(data);

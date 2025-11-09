@@ -19,7 +19,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 export class ModuleController {
   constructor(private readonly moduleService: ModuleService) {}
 
-  @Post()
+  @Post('create')
   @Roles('ADMIN')
   create(@Body() data: CreateModuleDto) {
     return this.moduleService.createModule(data);
