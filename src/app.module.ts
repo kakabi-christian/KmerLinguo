@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
+
+// 🔹 Tes modules internes
 import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -12,10 +15,18 @@ import { DivisionModule } from './division/division.module';
 import { ModuleModule } from './module/module.module';
 import { ChapterModule } from './chapter/chapter.module';
 import { LessonModule } from './lesson/lesson.module';
+import { StatistiqueModule } from './statistique/statistique.module';
+
+// 🔹 Tes guards globaux
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({isGlobal:true}),
+    // 🔸 Configuration globale de l’environnement
+    ConfigModule.forRoot({ isGlobal: true }),
+
+    // 🔸 Modules de ton application
     EmailModule,
     AuthModule,
     PrismaModule,
@@ -25,9 +36,19 @@ import { LessonModule } from './lesson/lesson.module';
     DivisionModule,
     ModuleModule,
     ChapterModule,
-    LessonModule
+    LessonModule,
+    StatistiqueModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+
+    // ✅ Application globale des guards
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard, // Protège toutes les routes par JWT sauf celles avec @Public()
+    },
+    
+  ],
 })
 export class AppModule {}

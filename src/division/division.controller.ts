@@ -16,7 +16,7 @@ import { UpdateDivisionDto } from './dto/update-division.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('divisions')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards( RolesGuard)
 export class DivisionController {
   constructor(private readonly divisionService: DivisionService) {}
 
