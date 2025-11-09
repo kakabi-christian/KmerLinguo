@@ -22,35 +22,35 @@ export class LanguageController {
 
   // POST /languages/create
   @Post('create')
-  @Roles('admin')
+  @Roles('ADMIN')
   create(@Body() dto: CreateLanguageDto) {
     return this.languageService.create(dto);
   }
 
   // GET /languages/search
   @Get('search')
-  @Roles('admin')
+  @Roles('ADMIN')
   findAll() {
     return this.languageService.findAll();
   }
 
   // GET /languages/search/:id
   @Get('search/:id')
-  @Roles('admin')
+  @Roles('ADMIN')
   findOne(@Param('id') id: string) {
     return this.languageService.findOne(id);
   }
 
   // PATCH /languages/update/:id
   @Patch('update/:id')
-  @Roles('admin')
+  @Roles('ADMIN')
   update(@Param('id') id: string, @Body() dto: UpdateLanguageDto) {
     return this.languageService.update(id, dto);
   }
 
   // DELETE /languages/delete/:id
   @Delete('delete/:id')
-  @Roles('admin')
+  @Roles('ADMIN')
   remove(@Param('id') id: string) {
     return this.languageService.remove(id);
 }

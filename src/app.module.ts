@@ -8,6 +8,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { JwtModule } from './jwt/jwt.module';
 import { CryptoModule } from './crypto/crypto.module';
 import { LanguageModule } from './language/language.module';
+import { DivisionModule } from './division/division.module';
+import { ModuleModule } from './module/module.module';
 
 @Module({
   imports: [
@@ -17,7 +19,9 @@ import { LanguageModule } from './language/language.module';
     PrismaModule,
     JwtModule,
     CryptoModule,
-    LanguageModule
+    LanguageModule,
+    DivisionModule,
+    ModuleModule
   ],
   controllers: [AppController],
   providers: [AppService],

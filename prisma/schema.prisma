@@ -80,7 +80,7 @@ model Division {
   id             String    @id @default(uuid())
   name           String
   pointThreshold Int
-  order          Int
+  order          Int @unique
 
   rankings       Ranking[]
 }
@@ -139,7 +139,7 @@ model Module {
   id          String   @id @default(uuid())
   title       String
   description String
-  order       Int
+  order       Int @unique
   chapters    Chapter[]
 }
 
@@ -149,7 +149,7 @@ model Chapter {
   moduleId  String
   title     String
   objective String
-  order     Int
+  order     Int @unique
   lessons   Lesson[]
 }
 
@@ -159,7 +159,7 @@ model Lesson {
   chapterId String
   title     String
   objective String
-  order     Int
+  order     Int @unique
   questions Question[]
 }
 
@@ -170,7 +170,7 @@ model Question {
   lessonId         String
   text             String
   correctAnswerId  String?
-  order            Int
+  order            Int @unique
   audioPath        String?
   imagePath        String?
   answers          Answer[]
@@ -183,7 +183,7 @@ model Answer {
   questionId String
   text       String
   isCorrect  Boolean
-  order      Int
+  order      Int @unique
 }
 
 // ------------------ Progression ------------------
