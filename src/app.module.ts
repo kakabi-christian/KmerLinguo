@@ -10,6 +10,8 @@ import { CryptoModule } from './crypto/crypto.module';
 import { LanguageModule } from './language/language.module';
 import { DivisionModule } from './division/division.module';
 import { ModuleModule } from './module/module.module';
+import { ChapterModule } from './chapter/chapter.module';
+import { LessonModule } from './lesson/lesson.module';
 
 @Module({
   imports: [
@@ -21,7 +23,9 @@ import { ModuleModule } from './module/module.module';
     CryptoModule,
     LanguageModule,
     DivisionModule,
-    ModuleModule
+    ModuleModule,
+    ChapterModule,
+    LessonModule
   ],
   controllers: [AppController],
   providers: [AppService],

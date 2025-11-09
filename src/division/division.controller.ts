@@ -9,7 +9,7 @@ import {
   UseGuards 
 } from '@nestjs/common';
 import { DivisionService } from './division.service';
-import { CreateDivisionDto } from './dto/create-diision.dto';
+import { CreateDivisionDto } from './dto/create-division.dto';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { UpdateDivisionDto } from './dto/update-division.dto';
