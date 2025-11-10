@@ -21,6 +21,7 @@ import { StatistiqueModule } from './statistique/statistique.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { GoalModule } from './goal/goal.module';
+import { ReferalSourceModule } from './referal-source/referal-source.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GoalModule } from './goal/goal.module';
     LessonModule,
     StatistiqueModule,
     GoalModule,
+    ReferalSourceModule,
   ],
   controllers: [AppController],
   providers: [
