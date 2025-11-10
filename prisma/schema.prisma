@@ -43,15 +43,31 @@ model User {
 
 // ------------------ UserPreference ------------------
 model UserPreference {
-  id               String   @id @default(uuid())
-  user             User     @relation(fields: [userId], references: [id])
-  userId           String
-  targetLanguage   Language @relation(fields: [targetLanguageId], references: [id])
-  targetLanguageId String
-  minutesPerDay    Int
-  goal             String
-  referralSource   String
-  createdAt        DateTime @default(now())
+  id                 String          @id @default(uuid())
+  user               User            @relation(fields: [userId], references: [id])
+  userId             String
+
+  targetLanguage     Language        @relation(fields: [targetLanguageId], references: [id])
+  targetLanguageId   String
+
+  goal               Goal            @relation(fields: [goalId], references: [id])
+  goalId             String
+
+  referralSource     ReferralSource  @relation(fields: [referralSourceId], references: [id])
+  referralSourceId   String
+
+  createdAt          DateTime        @default(now())
+}
+model Goal {
+  id        String            @id @default(uuid())
+  label     String             @unique
+  usersPref UserPreference[]
+}
+
+model ReferralSource {
+  id        String            @id @default(uuid())
+  label     String             @unique
+  usersPref UserPreference[]
 }
 
 // ------------------ Language ------------------

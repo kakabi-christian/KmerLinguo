@@ -20,6 +20,7 @@ import { StatistiqueModule } from './statistique/statistique.module';
 // 🔹 Tes guards globaux
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { GoalModule } from './goal/goal.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ChapterModule,
     LessonModule,
     StatistiqueModule,
+    GoalModule,
   ],
   controllers: [AppController],
   providers: [
