@@ -22,6 +22,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { GoalModule } from './goal/goal.module';
 import { ReferalSourceModule } from './referal-source/referal-source.module';
+import { UserPreferenceModule } from './user-preference/user-preference.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ReferalSourceModule } from './referal-source/referal-source.module';
     StatistiqueModule,
     GoalModule,
     ReferalSourceModule,
+    UserPreferenceModule,
   ],
   controllers: [AppController],
   providers: [

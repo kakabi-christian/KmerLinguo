@@ -50,25 +50,27 @@ model UserPreference {
   targetLanguage     Language        @relation(fields: [targetLanguageId], references: [id])
   targetLanguageId   String
 
-  goal               Goal            @relation(fields: [goalId], references: [id])
-  goalId             String
+  goal               Goal?           @relation(fields: [goalId], references: [id])
+  goalId             String?         
 
-  referralSource     ReferralSource  @relation(fields: [referralSourceId], references: [id])
-  referralSourceId   String
+  referralSource     ReferralSource? @relation(fields: [referralSourceId], references: [id])
+  referralSourceId   String?
 
   createdAt          DateTime        @default(now())
 }
+
 model Goal {
   id        String            @id @default(uuid())
-  label     String             @unique
+  label     String            @unique
   usersPref UserPreference[]
 }
 
 model ReferralSource {
   id        String            @id @default(uuid())
-  label     String             @unique
+  label     String            @unique
   usersPref UserPreference[]
 }
+
 
 // ------------------ Language ------------------
 model Language {
