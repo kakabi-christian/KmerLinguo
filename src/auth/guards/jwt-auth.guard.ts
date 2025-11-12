@@ -38,8 +38,10 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
-
+      if (isPublic) {
+    console.log('✅ Route publique détectée :', req.url);
+    return true;
+  }
     // 🔹 Vérifier si le token est présent
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

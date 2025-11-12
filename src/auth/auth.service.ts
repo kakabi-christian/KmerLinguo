@@ -12,6 +12,7 @@ import { CryptoService } from '../crypto/crypto.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -79,23 +80,25 @@ export class AuthService {
   }
 
   // ✅ Vérification de l’OTP
-  async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string }> {
-    const { email, otp } = verifyOtpDto;
+ // ✅ Vérification de l’OTP
+async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string; redirect: string }> {
+  const { email, otp } = verifyOtpDto;
 
-    const storedOtp = this.otpCache.get(email);
-    if (!storedOtp || storedOtp.otp !== otp || storedOtp.expiration < new Date()) {
-      throw new BadRequestException('Invalid or expired OTP.');
-    }
-
-    await this.prisma.user.update({
-      where: { email },
-      data: { isVerified: true },
-    });
-
-    this.otpCache.delete(email);
-
-    return { message: 'Account verified successfully!' };
+  const storedOtp = this.otpCache.get(email);
+  if (!storedOtp || storedOtp.otp !== otp || storedOtp.expiration < new Date()) {
+    throw new BadRequestException('Invalid or expired OTP.');
   }
+
+  await this.prisma.user.update({
+    where: { email },
+    data: { isVerified: true },
+  });
+
+  this.otpCache.delete(email);
+
+  return { message: 'Account verified successfully!', redirect: '/login' };
+}
+
 
   // ✅ Réenvoi d’un OTP
   async resendOtp(email: string): Promise<{ message: string }> {
@@ -135,6 +138,7 @@ export class AuthService {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
+        Role:user.role,
       },
     };
   }

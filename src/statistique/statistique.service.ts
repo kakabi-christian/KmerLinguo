@@ -82,9 +82,6 @@ async getUserStatistics(filters?: { year?: number; month?: number; week?: number
       take: 5,
     });
 
-    const avgMinutes = await this.prisma.userPreference.aggregate({
-      _avg: { minutesPerDay: true },
-    });
 
     const avgGoals = await this.prisma.userPreference.groupBy({
       by: ['userId'],
@@ -97,7 +94,6 @@ async getUserStatistics(filters?: { year?: number; month?: number; week?: number
     return {
       totalPreferences,
       mostPopularLanguages,
-      avgMinutesPerDay: avgMinutes._avg.minutesPerDay || 0,
       avgGoalPerUser,
     };
   }

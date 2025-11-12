@@ -20,6 +20,9 @@ import { StatistiqueModule } from './statistique/statistique.module';
 // 🔹 Tes guards globaux
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { GoalModule } from './goal/goal.module';
+import { ReferalSourceModule } from './referal-source/referal-source.module';
+import { UserPreferenceModule } from './user-preference/user-preference.module';
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ChapterModule,
     LessonModule,
     StatistiqueModule,
+    GoalModule,
+    ReferalSourceModule,
+    UserPreferenceModule,
   ],
   controllers: [AppController],
   providers: [
