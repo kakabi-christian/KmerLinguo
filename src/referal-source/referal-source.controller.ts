@@ -7,11 +7,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('referralsources')
 @UseGuards(RolesGuard)
-@Roles('ADMIN')
 export class ReferralSourceController {
   constructor(private readonly referralSourceService: ReferralSourceService) {}
 
   @Post('create')
+  @Roles('ADMIN')
+
   create(@Body() dto: CreateReferralSourceDto) {
     return this.referralSourceService.create(dto);
   }
@@ -27,11 +28,15 @@ export class ReferralSourceController {
   }
 
   @Patch(':id')
+  @Roles('ADMIN')
+
   update(@Param('id') id: string, @Body() dto: UpdateReferralSourceDto) {
     return this.referralSourceService.update(id, dto);
   }
 
   @Delete('delete/:id')
+  @Roles('ADMIN')
+
   remove(@Param('id') id: string) {
     return this.referralSourceService.remove(id);
   }

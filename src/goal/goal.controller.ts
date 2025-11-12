@@ -16,12 +16,13 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('goals')
 @UseGuards(RolesGuard)
-@Roles('ADMIN')
 export class GoalController {
   constructor(private readonly goalService: GoalService) {}
 
   // ➕ Ajouter un objectif
   @Post('create')
+  @Roles('ADMIN')
+
   create(@Body() data: CreateGoalDto) {
     return this.goalService.create(data);
   }
@@ -40,12 +41,16 @@ export class GoalController {
 
   // ✏️ Mettre à jour un objectif
   @Patch(':id')
+  @Roles('ADMIN')
+
   update(@Param('id') id: string, @Body() data: UpdateGoalDto) {
     return this.goalService.update(id, data);
   }
 
   // ❌ Supprimer un objectif
   @Delete('delete/:id')
+  @Roles('ADMIN')
+
   remove(@Param('id') id: string) {
     return this.goalService.remove(id);
   }
