@@ -23,6 +23,19 @@ export class LessonService {
     });
   }
 
+  async findByChapter(chapterId: string) {
+  const chapter = await this.prisma.chapter.findUnique({
+    where: { id: chapterId },
+  });
+
+  if (!chapter) throw new NotFoundException('Chapter not found');
+
+  return this.prisma.lesson.findMany({
+    where: { chapterId },
+    orderBy: { order: 'asc' },
+  });
+}
+
   async findOne(id: string) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id },

@@ -16,13 +16,17 @@ import { ModuleModule } from './module/module.module';
 import { ChapterModule } from './chapter/chapter.module';
 import { LessonModule } from './lesson/lesson.module';
 import { StatistiqueModule } from './statistique/statistique.module';
-
-// 🔹 Tes guards globaux
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
 import { GoalModule } from './goal/goal.module';
 import { ReferalSourceModule } from './referal-source/referal-source.module';
 import { UserPreferenceModule } from './user-preference/user-preference.module';
+import { MlModule } from './ml/ml.module';
+
+// 🔹 Multer pour upload audio
+import { MulterModule } from '@nestjs/platform-express';
+
+// 🔹 Tes guards globaux
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { QuestionModule } from './question/question.module';
 
 @Module({
   imports: [
@@ -44,6 +48,16 @@ import { UserPreferenceModule } from './user-preference/user-preference.module';
     GoalModule,
     ReferalSourceModule,
     UserPreferenceModule,
+
+    // 🔸 Module ML pour analyse audio
+    MlModule,
+
+    // 🔸 Multer global pour upload fichiers
+    MulterModule.register({
+      dest: './uploads', // dossier temporaire pour stocker les fichiers audio
+    }),
+
+    QuestionModule,
   ],
   controllers: [AppController],
   providers: [
@@ -52,9 +66,8 @@ import { UserPreferenceModule } from './user-preference/user-preference.module';
     // ✅ Application globale des guards
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard, // Protège toutes les routes par JWT sauf celles avec @Public()
+      useClass: JwtAuthGuard,
     },
-    
   ],
 })
 export class AppModule {}

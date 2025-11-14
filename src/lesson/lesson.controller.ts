@@ -30,6 +30,11 @@ export class LessonController {
   findAll() {
     return this.lessonService.findAll();
   }
+  @Get('chapter/:chapterId')
+@Roles('ADMIN', 'USER')
+findByChapter(@Param('chapterId') chapterId: string) {
+  return this.lessonService.findByChapter(chapterId);
+}
 
   @Get(':id')
   @Roles('ADMIN')

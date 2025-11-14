@@ -14,6 +14,7 @@ import { UpdateChapterDto } from './dto/update-chapter-dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+
 @Controller('chapters')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ChapterController {
@@ -26,9 +27,14 @@ export class ChapterController {
   }
 
   @Get('search')
-  @Roles('ADMIN')
+  @Roles('ADMIN','USER')
   findAll() {
     return this.chapterService.findAll();
+  }
+    @Get('module/:moduleId')
+  @Roles('ADMIN', 'USER')
+  findByModule(@Param('moduleId') moduleId: string) {
+    return this.chapterService.findByModule(moduleId);
   }
 
   @Get('search/:id')
