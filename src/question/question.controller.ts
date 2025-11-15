@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Param, Body, UploadedFile, UseInter
 import { FileInterceptor } from '@nestjs/platform-express';
 import { QuestionService } from './question.service';
 import type { Express } from 'express';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @Controller('question')
 export class QuestionController {
@@ -21,6 +22,11 @@ export class QuestionController {
     },
   ) {
     return this.questionService.createQuestion(body);
+  }
+  @Get('lesson/:lessonId')
+  @Roles('ADMIN', 'USER')
+  findByLesson(@Param('lessonId') lessonId: string) {
+    return this.questionService.findByLesson(lessonId);
   }
 
   // ---------------- CREATE AVEC AUDIO ----------------

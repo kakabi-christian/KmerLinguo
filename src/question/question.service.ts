@@ -32,6 +32,18 @@ export class QuestionService {
       },
     });
   }
+  async findByLesson(lessonId: string) {
+    const lesson = await this.prisma.lesson.findUnique({
+      where: { id: lessonId },
+    });
+    if (!lesson) throw new NotFoundException('Lesson not found');
+
+    // Récupère toutes les questions liées à cette leçon
+    return this.prisma.question.findMany({
+      where: { lessonId },
+      orderBy: { order: 'asc' },
+    });
+  }
 
   // ---------------- READ ----------------
   async getAllQuestions() {

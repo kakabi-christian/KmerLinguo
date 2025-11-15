@@ -33,7 +33,6 @@ model User {
   subscriptionsFollowed Subscription[] @relation("followed")
   subscriptionsFollowing Subscription[] @relation("follower")
   progressions Progression[]
-  wallet      Wallet?
   rewards     Reward[]
   feedbacks   Feedback[]
   notifications Notification[]
@@ -125,7 +124,6 @@ model Point {
   user      User     @relation(fields: [userId], references: [id])
   userId    String
   value     Int
-  source    String
   updatedAt DateTime @default(now())
 
   rankings  Ranking[]
@@ -224,26 +222,6 @@ model Progression {
   languageId    String
 
   @@index([userId, lessonId, questionId])
-}
-
-// ------------------ Wallet / Transaction / Reward ------------------
-model Wallet {
-  id          String       @id @default(uuid())
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id])
-  balance     String
-  lastUpdated DateTime     @default(now())
-  transactions Transaction[]
-}
-
-model Transaction {
-  id        String   @id @default(uuid())
-  wallet    Wallet   @relation(fields: [walletId], references: [id])
-  walletId  String
-  type      String
-  amount    Float
-  status    String
-  date      DateTime @default(now())
 }
 
 model Reward {

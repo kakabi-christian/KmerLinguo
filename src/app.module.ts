@@ -27,6 +27,7 @@ import { MulterModule } from '@nestjs/platform-express';
 // 🔹 Tes guards globaux
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { QuestionModule } from './question/question.module';
+import { RankingModule } from './ranking/ranking.module';
 
 @Module({
   imports: [
@@ -58,6 +59,8 @@ import { QuestionModule } from './question/question.module';
     }),
 
     QuestionModule,
+
+    RankingModule,
   ],
   controllers: [AppController],
   providers: [

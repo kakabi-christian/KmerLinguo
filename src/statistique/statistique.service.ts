@@ -256,68 +256,6 @@ async getUserStatistics(filters?: { year?: number; month?: number; week?: number
     };
   }
 
-  // 💰 PORTEFEUILLES / TRANSACTIONS / RECOMPENSES
-  async getWalletStatistics() {
-    const totalWallets = await this.prisma.wallet.count();
-
-    // 🔐 Récupération et déchiffrement des soldes
-    const wallets = await this.prisma.wallet.findMany({
-      select: { id: true, balance: true, userId: true },
-    });
-
-    const decryptedNumbers = await Promise.all(
-      wallets.map(async (w) => {
-        try {
-          if (!w.balance) return 0;
-          const decrypted = this.cryptoService.decrypt(w.balance);
-          const normalized = decrypted.replace(',', '.').trim();
-          const num = Number(normalized);
-          if (Number.isFinite(num)) return num;
-          this.logger.warn(`Portefeuille ${w.id} : valeur invalide "${decrypted}"`);
-          return 0;
-        } catch (err) {
-          this.logger.error(`Erreur déchiffrement ${w.id}`, err as any);
-          return 0;
-        }
-      }),
-    );
-
-    const totalBalance = decryptedNumbers.reduce((a, b) => a + b, 0);
-    const avgBalance = totalWallets > 0 ? totalBalance / totalWallets : 0;
-
-    const totalTransactions = await this.prisma.transaction.count();
-    const totalAmountAgg = await this.prisma.transaction.aggregate({ _sum: { amount: true } });
-    const totalAmount = totalAmountAgg._sum.amount ?? 0;
-
-    const statusBreakdown = await this.prisma.transaction.groupBy({
-      by: ['status'],
-      _count: { id: true },
-    });
-
-    const totalRewards = await this.prisma.reward.count();
-    const avgRewardPointsAgg = await this.prisma.reward.aggregate({ _avg: { points: true } });
-    const avgRewardPoints = avgRewardPointsAgg._avg.points ?? 0;
-
-    const topRewardUsers = await this.prisma.reward.groupBy({
-      by: ['userId'],
-      _sum: { points: true },
-      orderBy: { _sum: { points: 'desc' } },
-      take: 5,
-    });
-
-    return {
-      totalWallets,
-      totalBalance,
-      avgBalance,
-      totalTransactions,
-      totalAmount,
-      statusBreakdown,
-      totalRewards,
-      avgRewardPoints,
-      topRewardUsers,
-    };
-  }
-
   // 💬 FEEDBACKS
   async getFeedbackStatistics() {
     const totalFeedbacks = await this.prisma.feedback.count();

@@ -53,11 +53,7 @@ export class StatisticsController {
     return this.statisticsService.getSubscriptionStatistics();
   }
 
-  // 💰 PORTEFEUILLES / TRANSACTIONS / RÉCOMPENSES
-  @Get('wallets')
-  async getWalletStatistics() {
-    return this.statisticsService.getWalletStatistics();
-  }
+
 
   // 💬 FEEDBACKS
   @Get('feedbacks')
