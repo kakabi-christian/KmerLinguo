@@ -37,7 +37,7 @@ export class AuthService {
   }
 
   // ✅ Enregistrement d’un utilisateur + création wallet chiffré
- async register(registerDto: RegisterDto) {
+async register(registerDto: RegisterDto) {
   const { firstName, lastName, email, phone, password } = registerDto;
 
   // Vérifier si l'utilisateur existe déjà
@@ -84,9 +84,21 @@ export class AuthService {
       userId: user.id,
       pointId: point.id,
       divisionId: initialDivision.id,
-      rank: 1, // ou 1 si tu veux commencer à 1
+      rank: 1,
       periodStart: new Date(),
-      periodEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)), // par exemple 1 mois
+      periodEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+    },
+  });
+
+  // ---------------- Notification bienvenue ----------------
+  await this.prisma.notification.create({
+    data: {
+      userId: user.id,
+      type: 'Welcome',
+      message: `Bienvenue ${firstName} ! Votre compte KmerLinguo a été créé avec succès profitez-en pour apprendre ta langue maternelle.`,
+      isRead: false,
+      isBroadcast: false,
+      sentAt: new Date(),
     },
   });
 
