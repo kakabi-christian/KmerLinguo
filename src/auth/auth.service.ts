@@ -3,6 +3,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -36,48 +37,65 @@ export class AuthService {
   }
 
   // ✅ Enregistrement d’un utilisateur + création wallet chiffré
-  async register(registerDto: RegisterDto) {
-    const { firstName, lastName, email, phone, password } = registerDto;
+ async register(registerDto: RegisterDto) {
+  const { firstName, lastName, email, phone, password } = registerDto;
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await this.prisma.user.findUnique({ where: { email } });
-    if (existingUser) throw new ConflictException('Email already exists.');
+  // Vérifier si l'utilisateur existe déjà
+  const existingUser = await this.prisma.user.findUnique({ where: { email } });
+  if (existingUser) throw new ConflictException('Email already exists.');
 
-    // Hash du mot de passe
-    const hashedPassword = await this.hashCredentials(password);
+  // Hash du mot de passe
+  const hashedPassword = await this.hashCredentials(password);
 
-    // Génération de l’OTP
-    const otp = this.generateOtp();
-    const expiration = new Date();
-    expiration.setMinutes(expiration.getMinutes() + 10);
-    this.otpCache.set(email, { otp, expiration });
+  // Génération de l’OTP
+  const otp = this.generateOtp();
+  const expiration = new Date();
+  expiration.setMinutes(expiration.getMinutes() + 10);
+  this.otpCache.set(email, { otp, expiration });
 
-    // ✅ Envoi de l’email de vérification
-    await this.emailService.sendVerificationEmail(email, otp);
+  // ✅ Création de l'utilisateur
+  const user = await this.prisma.user.create({
+    data: {
+      firstName,
+      lastName,
+      email,
+      phone,
+      passwordHash: hashedPassword,
+      isVerified: false,
+    },
+  });
 
-    // ✅ Création de l'utilisateur
-    const user = await this.prisma.user.create({
-      data: {
-        firstName,
-        lastName,
-        email,
-        phone,
-        passwordHash: hashedPassword,
-        isVerified: false,
-      },
-    });
+  // ---------------- Point initial à 0 ----------------
+  const point = await this.prisma.point.create({
+    data: {
+      userId: user.id,
+      value: 0,
+    },
+  });
 
-    // ✅ Création du wallet avec solde chiffré à 0
-    const encryptedBalance = this.cryptoService.encrypt('0');
-    await this.prisma.wallet.create({
-      data: {
-        userId: user.id,
-        balance: encryptedBalance,
-      },
-    });
+  // ---------------- Ranking initial dans la division avec order = 1 ----------------
+  const initialDivision = await this.prisma.division.findFirst({
+    where: { order: 1 },
+  });
+  if (!initialDivision) throw new NotFoundException('Initial division not found');
 
-    return { message: 'User created successfully. Check your email for the OTP.' };
-  }
+  await this.prisma.ranking.create({
+    data: {
+      userId: user.id,
+      pointId: point.id,
+      divisionId: initialDivision.id,
+      rank: 1, // ou 1 si tu veux commencer à 1
+      periodStart: new Date(),
+      periodEnd: new Date(new Date().setMonth(new Date().getMonth() + 1)), // par exemple 1 mois
+    },
+  });
+
+  // ✅ Envoi de l’email de vérification
+  await this.emailService.sendVerificationEmail(email, otp);
+
+  return { message: 'User created successfully. Check your email for the OTP.' };
+}
+
 
   // ✅ Vérification de l’OTP
  // ✅ Vérification de l’OTP

@@ -12,11 +12,19 @@ export class ModuleService {
     return this.prisma.module.create({ data });
   }
 
-  // 🔹 READ - Rechercher tous les modules
+  // 🔹 READ - Rechercher tous les modules (search + findAll)
   async searchModules() {
     return this.prisma.module.findMany({
       orderBy: { order: 'asc' },
       include: { chapters: true }, // Inclut les chapitres liés
+    });
+  }
+
+  // 🔹 READ - Récupérer tous les modules (findAll)
+  async findAll() {
+    return this.prisma.module.findMany({
+      orderBy: { order: 'asc' },
+      include: { chapters: true },
     });
   }
 

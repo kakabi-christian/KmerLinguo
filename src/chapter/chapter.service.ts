@@ -13,6 +13,23 @@ export class ChapterService {
 
     return this.prisma.chapter.create({ data });
   }
+  async findByModule(moduleId: string) {
+  const module = await this.prisma.module.findUnique({
+    where: { id: moduleId },
+  });
+
+  if (!module) {
+    throw new NotFoundException('Module not found');
+  }
+
+  return this.prisma.chapter.findMany({
+    where: { moduleId },
+    orderBy: { order: 'asc' },
+    include: {
+      lessons: true,
+    },
+  });
+}
 
   async findAll() {
     return this.prisma.chapter.findMany({

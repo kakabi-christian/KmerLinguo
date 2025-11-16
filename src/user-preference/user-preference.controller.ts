@@ -1,11 +1,12 @@
+import { PrismaService } from './../prisma/prisma.service';
 import { Controller, Get, Post, Patch, Body, Param, NotFoundException } from '@nestjs/common';
 import { UserPreferenceService } from './user-preference.service';
 import { CreateUserPreferenceDto } from './Dto/create-user-preference.dto';
 import { UpdateUserPreferenceDto } from './Dto/update-user-preference.dto';
-
 @Controller('user-preferences')
 export class UserPreferenceController {
-  constructor(private readonly service: UserPreferenceService) {}
+  constructor(private readonly service: UserPreferenceService,private readonly Prisma:PrismaService) {}
+  
 
   /**
    * 🟢 Étape 1 : Création initiale de la préférence utilisateur
@@ -39,4 +40,11 @@ export class UserPreferenceController {
   async getByUser(@Param('userId') userId: string) {
     return this.service.getByUserId(userId);
   }
-}
+  @Get('has-preferences/:userId')
+  async hasPreferences(@Param('userId') userId: string) {
+    const pref = await this.Prisma.userPreference.findFirst({
+      where: { userId },
+    });
+    return { hasPreferences: !!pref }; // ✅ true s’il en a, false sinon
+  }
+  }

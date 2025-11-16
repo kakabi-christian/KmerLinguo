@@ -1,5 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -35,7 +33,6 @@ model User {
   subscriptionsFollowed Subscription[] @relation("followed")
   subscriptionsFollowing Subscription[] @relation("follower")
   progressions Progression[]
-  wallet      Wallet?
   rewards     Reward[]
   feedbacks   Feedback[]
   notifications Notification[]
@@ -79,6 +76,10 @@ model Language {
   languageCode     String
 
   userPreferences  UserPreference[]
+
+  progressions Progression[]
+
+  questions Question[]
 }
 
 // ------------------ Series ------------------
@@ -123,7 +124,6 @@ model Point {
   user      User     @relation(fields: [userId], references: [id])
   userId    String
   value     Int
-  source    String
   updatedAt DateTime @default(now())
 
   rankings  Ranking[]
@@ -183,16 +183,17 @@ model Lesson {
 
 // ------------------ Question / Answer ------------------
 model Question {
-  id               String       @id @default(uuid())
-  lesson           Lesson       @relation(fields: [lessonId], references: [id])
-  lessonId         String
-  text             String
-  correctAnswerId  String?
-  order            Int @unique
-  audioPath        String?
-  imagePath        String?
-  answers          Answer[]
-  progressions     Progression[]
+  id           String   @id @default(uuid())
+  lesson       Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId     String
+  language     Language @relation(fields: [languageId], references: [id])
+  languageId   String
+  text         String
+  audioPath    String?
+  imagePath    String?
+  order        Int      // pour organiser les questions dans la leçon
+  answers      Answer[] // plusieurs réponses possibles
+  progressions Progression[]
 }
 
 model Answer {
@@ -200,9 +201,9 @@ model Answer {
   question   Question @relation(fields: [questionId], references: [id])
   questionId String
   text       String
-  isCorrect  Boolean
-  order      Int @unique
+  isCorrect  Boolean  // vrai si c'est la bonne réponse
 }
+
 
 // ------------------ Progression ------------------
 model Progression {
@@ -215,27 +216,12 @@ model Progression {
   userAnswer    String?
   userVoicePath String?
   isCorrect     Boolean
+  completed     Boolean  @default(false) // ← nouvelle colonne pour savoir si la question est terminée
   answeredAt    DateTime @default(now())
-}
+  language      Language @relation(fields: [languageId], references: [id])
+  languageId    String
 
-// ------------------ Wallet / Transaction / Reward ------------------
-model Wallet {
-  id          String       @id @default(uuid())
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id])
-  balance     String
-  lastUpdated DateTime     @default(now())
-  transactions Transaction[]
-}
-
-model Transaction {
-  id        String   @id @default(uuid())
-  wallet    Wallet   @relation(fields: [walletId], references: [id])
-  walletId  String
-  type      String
-  amount    Float
-  status    String
-  date      DateTime @default(now())
+  @@index([userId, lessonId, questionId])
 }
 
 model Reward {
@@ -252,8 +238,9 @@ model Reward {
 model Feedback {
   id        String   @id @default(uuid())
   user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  userId    String @unique
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
 }
+
