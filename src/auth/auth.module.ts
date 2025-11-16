@@ -27,7 +27,7 @@ import { EmailService } from 'src/email/email.service';
       useFactory: async (configService: ConfigService): Promise<JwtModuleOptions> => {
         const privateKeyPath = configService.get<string>('JWT_PRIVATE_KEY_PATH');
         const publicKeyPath = configService.get<string>('JWT_PUBLIC_KEY_PATH');
-        const expiresInEnv = configService.get<string>('JWT_EXPIRATION_TIME') || '30m';
+        const expiresInEnv = configService.get<string>('JWT_EXPIRATION_TIME') || '5h';
 
         if (!privateKeyPath || !publicKeyPath) {
           throw new Error('JWT keys must be defined in environment variables.');

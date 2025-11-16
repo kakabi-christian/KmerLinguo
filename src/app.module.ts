@@ -29,6 +29,8 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { QuestionModule } from './question/question.module';
 import { RankingModule } from './ranking/ranking.module';
 import { StatsModule } from './stats/stats.module';
+import { ProfileModule } from './profile/profile.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 @Module({
   imports: [
@@ -64,6 +66,10 @@ import { StatsModule } from './stats/stats.module';
     RankingModule,
 
     StatsModule,
+
+    ProfileModule,
+
+    FeedbackModule,
   ],
   controllers: [AppController],
   providers: [
