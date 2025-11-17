@@ -12,6 +12,13 @@ enum Role {
   ADMIN
   USER
 }
+enum QuestionType {
+  TEXT
+  MULTIPLE_CHOICE
+  AUDIO_TO_TEXT
+  AUDIO_TO_TRANSLATION
+  VOICE_PRONUNCIATION
+}
 
 // ------------------ Users ------------------
 model User {
@@ -167,7 +174,7 @@ model Chapter {
   moduleId  String
   title     String
   objective String
-  order     Int @unique
+  order     Int 
   lessons   Lesson[]
 }
 
@@ -177,8 +184,10 @@ model Lesson {
   chapterId String
   title     String
   objective String
-  order     Int @unique
+  order     Int 
   questions Question[]
+
+  progressions Progression[]
 }
 
 // ------------------ Question / Answer ------------------
@@ -192,6 +201,8 @@ model Question {
   audioPath    String?
   imagePath    String?
   order        Int      // pour organiser les questions dans la leçon
+  type         QuestionType 
+  correctAnswer  String?
   answers      Answer[] // plusieurs réponses possibles
   progressions Progression[]
 }
@@ -208,18 +219,24 @@ model Answer {
 // ------------------ Progression ------------------
 model Progression {
   id            String   @id @default(uuid())
+  
   user          User     @relation(fields: [userId], references: [id])
   userId        String
+
   question      Question @relation(fields: [questionId], references: [id])
   questionId    String
+
+  lesson        Lesson   @relation(fields: [lessonId], references: [id])
   lessonId      String
+
+  language      Language @relation(fields: [languageId], references: [id])
+  languageId    String
+
   userAnswer    String?
   userVoicePath String?
   isCorrect     Boolean
-  completed     Boolean  @default(false) // ← nouvelle colonne pour savoir si la question est terminée
+  completed     Boolean  @default(false)
   answeredAt    DateTime @default(now())
-  language      Language @relation(fields: [languageId], references: [id])
-  languageId    String
 
   @@index([userId, lessonId, questionId])
 }
@@ -243,4 +260,3 @@ model Feedback {
   comment   String?
   createdAt DateTime @default(now())
 }
-

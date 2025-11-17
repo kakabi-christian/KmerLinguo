@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { QuestionService } from './question.service';
+import { CreateQuestionDto, QuestionType } from './dto/create-question.dto';
 import type { Express } from 'express';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 
@@ -8,81 +9,51 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 export class QuestionController {
   constructor(private readonly questionService: QuestionService) {}
 
-  // ---------------- CREATE (texte seulement) ----------------
+  // ---------------- CREATE QUESTION ----------------
   @Post('create')
+  // @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
   async createQuestion(
-    @Body() body: {
-      lessonId: string;
-      languageId: string;
-      text: string;
-      audioPath?: string;
-      imagePath?: string;
-      order: number;
-      answers: { text: string; isCorrect: boolean }[];
-    },
+    @Body() body: CreateQuestionDto,
+    @UploadedFile() file?: Express.Multer.File
   ) {
+    // Si un fichier est uploadé, on ajoute le chemin dans body
+    if (file) {
+      if (file.mimetype.startsWith('audio/')) {
+        body.audioPath = file.path;
+      } else if (file.mimetype.startsWith('image/')) {
+        body.imagePath = file.path;
+      } else {
+        throw new BadRequestException('Fichier non supporté');
+      }
+    }
+
     return this.questionService.createQuestion(body);
   }
+
+  // ---------------- GET QUESTIONS BY LESSON ----------------
   @Get('lesson/:lessonId')
-  @Roles('ADMIN', 'USER')
-  findByLesson(@Param('lessonId') lessonId: string) {
-    return this.questionService.findByLesson(lessonId);
+  @Roles('USER')
+  async getQuestionsByLesson(@Param('lessonId') lessonId: string) {
+    return this.questionService.getQuestionsByLesson(lessonId);
   }
 
-  // ---------------- CREATE AVEC AUDIO ----------------
-  @Post('create-audio')
-  @UseInterceptors(FileInterceptor('audio'))
-  async createQuestionAudio(
-    @UploadedFile() file: Express.Multer.File,
-    @Body('lessonId') lessonId: string,
-    @Body('languageId') languageId: string,
-    @Body('text') text: string,
-    @Body('order') order: number,
-    @Body('answers') answers: string, // JSON string
-  ) {
-    const parsedAnswers = JSON.parse(answers); // convertir en objet
-    const audioPath = file.path; // Multer stocke le fichier temporairement
-
-    return this.questionService.createQuestion({
-      lessonId,
-      languageId,
-      text,
-      audioPath,
-      imagePath:"",
-      order: Number(order),
-      answers: parsedAnswers,
-    });
-  }
-
-  // ---------------- READ ----------------
-  @Get()
-  async getAllQuestions() {
-    return this.questionService.getAllQuestions();
-  }
-
+  // ---------------- GET QUESTION BY ID ----------------
   @Get(':id')
   async getQuestionById(@Param('id') id: string) {
     return this.questionService.getQuestionById(id);
   }
 
-  // ---------------- UPDATE ----------------
-  @Put(':id')
-  async updateQuestion(
-    @Param('id') id: string,
-    @Body() body: {
-      text?: string;
-      audioPath?: string;
-      imagePath?: string;
-      order?: number;
-      answers?: { text: string; isCorrect: boolean }[];
-    },
+  // ---------------- CHECK USER ANSWER ----------------
+  @Post(':id/check')
+  async checkAnswer(
+    @Param('id') questionId: string,
+    @Body('answer') userAnswer: string
   ) {
-    return this.questionService.updateQuestion(id, body);
-  }
+    if (!userAnswer) {
+      throw new BadRequestException('La réponse de l’utilisateur est requise');
+    }
 
-  // ---------------- DELETE ----------------
-  @Delete(':id')
-  async deleteQuestion(@Param('id') id: string) {
-    return this.questionService.deleteQuestion(id);
+    return this.questionService.checkAnswer(questionId, userAnswer);
   }
 }
