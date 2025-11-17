@@ -1,109 +1,98 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateQuestionDto, QuestionType } from './dto/create-question.dto';
 
 @Injectable()
 export class QuestionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ---------------- CREATE ----------------
-  async createQuestion(data: {
-    lessonId: string;
-    languageId: string;
-    text: string;
-    audioPath?: string;
-    imagePath?: string;
-    order: number;
-    answers: { text: string; isCorrect: boolean }[];
-  }) {
+  // ---------------- CREATION DE QUESTION ----------------
+  async createQuestion(data: CreateQuestionDto) {
+    const { answers, type, correctAnswer, lessonId, languageId, text, order, audioPath, imagePath } = data;
+
+    // Vérifier si la question existe déjà pour cette leçon et langue
+    const existingQuestion = await this.prisma.question.findFirst({
+      where: { lessonId, languageId, text },
+    });
+    if (existingQuestion) {
+      throw new BadRequestException('Cette question existe déjà pour cette leçon et langue');
+    }
+
+    // Préparer les réponses pour MULTIPLE_CHOICE, AUDIO_TO_TEXT, AUDIO_TO_TRANSLATION
+    const answersData =
+      (type === QuestionType.MULTIPLE_CHOICE ||
+        type === QuestionType.AUDIO_TO_TEXT ||
+        type === QuestionType.AUDIO_TO_TRANSLATION) &&
+      answers &&
+      answers.length > 0
+        ? { create: answers.map(a => ({ text: a.text, isCorrect: a.isCorrect ?? true })) }
+        : undefined;
+
+    // Pour les questions TEXT, on crée une réponse unique
+    const textAnswerData =
+      type === QuestionType.TEXT && correctAnswer
+        ? { create: { text: correctAnswer, isCorrect: true } }
+        : undefined;
+
     return this.prisma.question.create({
       data: {
-        lessonId: data.lessonId,
-        languageId: data.languageId,
-        text: data.text,
-        audioPath: data.audioPath || null,
-        imagePath: data.imagePath || null,
-        order: data.order,
-        answers: {
-          create: data.answers,
-        },
+        lessonId,
+        languageId,
+        text,
+        order,
+        audioPath,
+        imagePath,
+        type,
+        answers: answersData || textAnswerData,
       },
-      include: {
-        answers: true, // renvoie les réponses créées
-      },
+      include: { answers: true },
     });
   }
-  async findByLesson(lessonId: string) {
-    const lesson = await this.prisma.lesson.findUnique({
-      where: { id: lessonId },
-    });
-    if (!lesson) throw new NotFoundException('Lesson not found');
 
-    // Récupère toutes les questions liées à cette leçon
+  // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON ----------------
+  async getQuestionsByLesson(lessonId: string) {
     return this.prisma.question.findMany({
       where: { lessonId },
+      include: { answers: true },
       orderBy: { order: 'asc' },
     });
   }
 
-  // ---------------- READ ----------------
-  async getAllQuestions() {
-    return this.prisma.question.findMany({
-      include: {
-        answers: true,
-      },
-    });
-  }
-
-  async getQuestionById(id: string) {
+  // ---------------- RECUPERER UNE QUESTION PAR ID ----------------
+  async getQuestionById(questionId: string) {
     const question = await this.prisma.question.findUnique({
-      where: { id },
+      where: { id: questionId },
       include: { answers: true },
     });
-    if (!question) throw new NotFoundException('Question non trouvée');
+
+    if (!question) {
+      throw new NotFoundException('Question not found');
+    }
+
     return question;
   }
 
-  // ---------------- UPDATE ----------------
-  async updateQuestion(
-    id: string,
-    data: {
-      text?: string;
-      audioPath?: string;
-      imagePath?: string;
-      order?: number;
-      answers?: { text: string; isCorrect: boolean }[];
-    },
-  ) {
-    // Vérifier que la question existe
-    const question = await this.prisma.question.findUnique({ where: { id } });
-    if (!question) throw new NotFoundException('Question non trouvée');
-
-    // Mettre à jour les réponses si nécessaire
-    if (data.answers) {
-      // Supprimer les anciennes réponses
-      await this.prisma.answer.deleteMany({ where: { questionId: id } });
-    }
-
-    return this.prisma.question.update({
-      where: { id },
-      data: {
-        text: data.text,
-        audioPath: data.audioPath,
-        imagePath: data.imagePath,
-        order: data.order,
-        answers: data.answers ? { create: data.answers } : undefined,
-      },
+  // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ----------------
+  async checkAnswer(questionId: string, userAnswer: string) {
+    const question = await this.prisma.question.findUnique({
+      where: { id: questionId },
       include: { answers: true },
     });
-  }
-  
 
-  // ---------------- DELETE ----------------
-  async deleteQuestion(id: string) {
-    // Supprimer d’abord les réponses liées
-    await this.prisma.answer.deleteMany({ where: { questionId: id } });
+    if (!question) {
+      throw new NotFoundException('Question not found');
+    }
 
-    // Supprimer la question
-    return this.prisma.question.delete({ where: { id } });
+    // On ne garde que les réponses correctes
+    const correctAnswers = question.answers
+      .filter(a => a.isCorrect)
+      .map(a => a.text);
+
+    // Comparaison simple (insensible à la casse et aux espaces)
+    const isCorrect = correctAnswers.some(
+      a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
+    );
+
+    return { isCorrect, correctAnswers };
   }
 }

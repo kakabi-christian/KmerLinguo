@@ -32,6 +32,7 @@ import { StatsModule } from './stats/stats.module';
 import { ProfileModule } from './profile/profile.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { NotificationModule } from './notification/notification.module';
+import { ProgressionModule } from './progression/progression.module';
 
 @Module({
   imports: [
@@ -73,6 +74,8 @@ import { NotificationModule } from './notification/notification.module';
     FeedbackModule,
 
     NotificationModule,
+
+    ProgressionModule,
   ],
   controllers: [AppController],
   providers: [
