@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { LessonService } from './lesson.service';
 import { CreateLessonDto  } from './Dto/create-lesson-dto';
@@ -14,6 +15,7 @@ import { UpdateLessonDto } from './Dto/update-lesson-dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+
 @Controller('lessons')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LessonController {
@@ -30,11 +32,18 @@ export class LessonController {
   findAll() {
     return this.lessonService.findAll();
   }
+
   @Get('chapter/:chapterId')
-@Roles('ADMIN', 'USER')
-findByChapter(@Param('chapterId') chapterId: string) {
-  return this.lessonService.findByChapter(chapterId);
-}
+  @Roles('ADMIN', 'USER')
+  findByChapter(
+    @Param('chapterId') chapterId: string,
+    @Req() req: any
+  ) {
+    // 🔥 Récupération de la langue dans le token JWT
+    const userLanguage = req.user.language || 'fr';
+
+    return this.lessonService.findByChapter(chapterId, userLanguage);
+  }
 
   @Get(':id')
   @Roles('ADMIN')

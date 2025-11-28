@@ -49,13 +49,19 @@ export class QuestionService {
     });
   }
 
-  // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON ----------------
-  async getQuestionsByLesson(lessonId: string) {
-    return this.prisma.question.findMany({
-      where: { lessonId },
+  // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON EN FONCTION DE LA LANGUE ----------------
+  async getQuestionsByLessonAndLanguage(lessonId: string, languageId: string) {
+    const questions = await this.prisma.question.findMany({
+      where: { lessonId, languageId },
       include: { answers: true },
       orderBy: { order: 'asc' },
     });
+
+    if (!questions || questions.length === 0) {
+      throw new NotFoundException('Aucune question disponible pour cette leçon et cette langue');
+    }
+
+    return questions;
   }
 
   // ---------------- RECUPERER UNE QUESTION PAR ID ----------------
@@ -94,5 +100,14 @@ export class QuestionService {
     );
 
     return { isCorrect, correctAnswers };
+  }
+
+  // ---------------- TROUVER LANGUE PAR CODE ----------------
+  async findLanguageByCode(code: string) {
+    if (!code) return null;
+    const language = await this.prisma.language.findFirst({
+      where: { languageCode: code },
+    });
+    return language || null;
   }
 }

@@ -23,7 +23,7 @@ export class LessonService {
     });
   }
 
-  async findByChapter(chapterId: string) {
+  async findByChapter(chapterId: string, userLanguage: any) {
   const chapter = await this.prisma.chapter.findUnique({
     where: { id: chapterId },
   });
