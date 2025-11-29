@@ -22,26 +22,29 @@ enum QuestionType {
 
 // ------------------ Users ------------------
 model User {
-  id          String           @id @default(uuid())
-  firstName   String
-  lastName    String
-  email       String           @unique
-  phone       String           @unique
+  id           String           @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String           @unique
+  phone        String           @unique
   passwordHash String
-  isVerified  Boolean          @default(false)
-  role        Role             @default(USER)
-  createdAt   DateTime         @default(now())
-  lastLogin   DateTime?
+  isVerified   Boolean          @default(false)
+  role         Role             @default(USER)
+  createdAt    DateTime         @default(now())
+  lastLogin    DateTime?
 
-  preferences UserPreference[]
-  series      Series[]
-  points      Point[]
-  rankings    Ranking[]
+  languageId   String?          // clé étrangère optionnelle
+  language     Language?        @relation(fields: [languageId], references: [id])
+
+  preferences  UserPreference[]
+  series       Series[]
+  points       Point[]
+  rankings     Ranking[]
   subscriptionsFollowed Subscription[] @relation("followed")
   subscriptionsFollowing Subscription[] @relation("follower")
   progressions Progression[]
-  rewards     Reward[]
-  feedbacks   Feedback[]
+  rewards      Reward[]
+  feedbacks    Feedback[]
   notifications Notification[]
 }
 
@@ -82,11 +85,10 @@ model Language {
   name             String
   languageCode     String
 
+  users            User[]           // 🔹 relation inverse
   userPreferences  UserPreference[]
-
-  progressions Progression[]
-
-  questions Question[]
+  progressions     Progression[]
+  questions        Question[]
 }
 
 // ------------------ Series ------------------

@@ -8,16 +8,19 @@ import {
   Body,
   UseGuards,
   Req,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { LessonService } from './lesson.service';
-import { CreateLessonDto  } from './Dto/create-lesson-dto';
+import { CreateLessonDto } from './Dto/create-lesson-dto';
 import { UpdateLessonDto } from './Dto/update-lesson-dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { AuthGuard } from '@nestjs/passport/dist/auth.guard';
 
 @Controller('lessons')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class LessonController {
   constructor(private readonly lessonService: LessonService) {}
 
@@ -33,16 +36,30 @@ export class LessonController {
     return this.lessonService.findAll();
   }
 
+  // 🔹 Endpoint pour récupérer les leçons d’un chapitre pour un utilisateur
   @Get('chapter/:chapterId')
   @Roles('ADMIN', 'USER')
-  findByChapter(
+  async findByChapter(
     @Param('chapterId') chapterId: string,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    // 🔥 Récupération de la langue dans le token JWT
-    const userLanguage = req.user.language || 'fr';
+    // 🔹 Récupérer l'ID de la langue depuis le token
+    const userLanguageId = req.user.language?.id;
+    if (!userLanguageId) {
+      throw new BadRequestException('User language not found');
+    }
 
-    return this.lessonService.findByChapter(chapterId, userLanguage);
+    const lessons = await this.lessonService.findByChapter(
+      chapterId,
+      userLanguageId,
+    );
+
+    // 🔹 Retourner un tableau vide si aucune question n’est trouvée
+    if (!lessons || lessons.length === 0) {
+      return [];
+    }
+
+    return lessons;
   }
 
   @Get(':id')

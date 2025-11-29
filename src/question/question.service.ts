@@ -110,4 +110,13 @@ export class QuestionService {
     });
     return language || null;
   }
+
+ async findUserPreference(userId: string) {
+  return this.prisma.userPreference.findFirst({
+    where: { userId },
+  });
 }
+
+}
+
+

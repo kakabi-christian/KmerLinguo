@@ -12,33 +12,68 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private prisma: PrismaService,
     private configService: ConfigService,
   ) {
-    // Récupère le chemin du fichier de clé publique depuis l'env
+    // Lire le chemin de la clé publique défini dans .env
     const publicKeyPath = configService.get<string>('JWT_PUBLIC_KEY_PATH');
     if (!publicKeyPath) {
       throw new Error(
-        'JWT public key path is not defined in the environment variables.',
+        'JWT_PUBLIC_KEY_PATH is missing in environment variables.',
       );
     }
 
-    // Lit la clé depuis le fichier
+    // Charger la clé publique depuis le fichier
     const publicKey = readFileSync(join(process.cwd(), publicKeyPath), 'utf8');
 
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       algorithms: ['RS256'],
-      secretOrKey: publicKey, // clé lue depuis le fichier
+      secretOrKey: publicKey,
     });
   }
 
   async validate(payload: any) {
+    // Vérifier que la langue est bien présente dans le token
+    if (!payload.languageId) {
+      throw new UnauthorizedException(
+        'User language not found in the token payload',
+      );
+    }
+
+    // Récupérer l'utilisateur
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
 
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User not found');
     }
-    return user;
+
+    // Récupérer la langue associée
+    const language = await this.prisma.language.findUnique({
+      where: { id: payload.languageId },
+    });
+
+    if (!language) {
+      throw new UnauthorizedException(
+        'Language linked to this user was not found in database',
+      );
+    }
+
+    // 🔥 Ce qui est retourné ici sera accessible via req.user
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      languageId: language.id, // 🔹 ajouté
+
+
+      language: {
+        id: language.id,
+        name: language.name,
+        code: language.languageCode,
+      },
+    };
   }
 }
