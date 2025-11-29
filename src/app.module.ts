@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -55,8 +58,6 @@ import { PointModule } from './point/point.module';
     GoalModule,
     ReferalSourceModule,
     UserPreferenceModule,
-
-    // 🔸 Module ML pour analyse audio
     MlModule,
 
     // 🔸 Multer global pour upload fichiers
@@ -64,20 +65,19 @@ import { PointModule } from './point/point.module';
       dest: './uploads', // dossier temporaire pour stocker les fichiers audio
     }),
 
+    // 🔸 Servir le dossier uploads en statique pour accès depuis Flutter
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads', // accessible via http://localhost:3000/uploads/xxx.mp3
+    }),
+
     QuestionModule,
-
     RankingModule,
-
     StatsModule,
-
     ProfileModule,
-
     FeedbackModule,
-
     NotificationModule,
-
     ProgressionModule,
-
     PointModule,
   ],
   controllers: [AppController],
