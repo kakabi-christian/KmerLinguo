@@ -89,15 +89,19 @@ export class QuestionController {
   }
 
   // ---------------- CHECK USER ANSWER ----------------
-  @Post(':id/check')
-  async checkAnswer(
-    @Param('id') questionId: string,
-    @Body('answer') userAnswer: string,
-  ) {
-    if (!userAnswer) {
-      throw new BadRequestException("User's answer is required");
-    }
-
-    return this.questionService.checkAnswer(questionId, userAnswer);
+ @Post(':id/check')
+async checkAnswer(
+  @Param('id') questionId: string,
+  @Body('answer') userAnswer: string,
+  @Req() req: any
+) {
+  if (!userAnswer) {
+    throw new BadRequestException("User's answer is required");
   }
+
+  const userId = req.user.id; // 🔹 récupère l'id depuis JWT
+
+  return this.questionService.checkAnswer(questionId, userAnswer, userId);
+}
+
 }

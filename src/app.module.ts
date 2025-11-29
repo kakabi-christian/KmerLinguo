@@ -33,6 +33,7 @@ import { ProfileModule } from './profile/profile.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProgressionModule } from './progression/progression.module';
+import { PointModule } from './point/point.module';
 
 @Module({
   imports: [
@@ -76,6 +77,8 @@ import { ProgressionModule } from './progression/progression.module';
     NotificationModule,
 
     ProgressionModule,
+
+    PointModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,16 +1,21 @@
+// question.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto, QuestionType } from './dto/create-question.dto';
+import { PointService } from '../point/point.service'; 
+import axios from 'axios';
 
 @Injectable()
 export class QuestionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pointService: PointService,
+  ) {}
 
   // ---------------- CREATION DE QUESTION ----------------
   async createQuestion(data: CreateQuestionDto) {
     const { answers, type, correctAnswer, lessonId, languageId, text, order, audioPath, imagePath } = data;
 
-    // Vérifier si la question existe déjà pour cette leçon et langue
     const existingQuestion = await this.prisma.question.findFirst({
       where: { lessonId, languageId, text },
     });
@@ -18,7 +23,6 @@ export class QuestionService {
       throw new BadRequestException('Cette question existe déjà pour cette leçon et langue');
     }
 
-    // Préparer les réponses pour MULTIPLE_CHOICE, AUDIO_TO_TEXT, AUDIO_TO_TRANSLATION
     const answersData =
       (type === QuestionType.MULTIPLE_CHOICE ||
         type === QuestionType.AUDIO_TO_TEXT ||
@@ -28,14 +32,13 @@ export class QuestionService {
         ? { create: answers.map(a => ({ text: a.text, isCorrect: a.isCorrect ?? true })) }
         : undefined;
 
-    // Pour les questions TEXT, on crée une réponse unique
     const textAnswerData =
       type === QuestionType.TEXT && correctAnswer
         ? { create: { text: correctAnswer, isCorrect: true } }
         : undefined;
 
-    return this.prisma.question.create({
-      data: {
+    const question = await this.prisma.question.create({
+      data: { 
         lessonId,
         languageId,
         text,
@@ -47,6 +50,25 @@ export class QuestionService {
       },
       include: { answers: true },
     });
+
+    // ---------------- ENVOI DES REPONSES VERS DJANGO ----------------
+    if (question.answers && question.answers.length > 0) {
+      for (const a of question.answers) {
+        try {
+          await axios.post('http://127.0.0.1:8000/audio/answers/', {
+            id: a.id,           // UUID généré par Prisma
+            questionId: question.id,
+            text: a.text,
+            isCorrect: a.isCorrect,
+          });
+          console.log('✅ Réponse envoyée à Django:', a.text);
+        } catch (error) {
+          console.error('❌ Erreur lors de l\'envoi à Django:', error.response?.data || error.message);
+        }
+      }
+    }
+
+    return question;
   }
 
   // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON EN FONCTION DE LA LANGUE ----------------
@@ -78,8 +100,8 @@ export class QuestionService {
     return question;
   }
 
-  // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ----------------
-  async checkAnswer(questionId: string, userAnswer: string) {
+  // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ET AJOUTER DES POINTS ----------------
+  async checkAnswer(questionId: string, userAnswer: string, userId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
       include: { answers: true },
@@ -89,17 +111,22 @@ export class QuestionService {
       throw new NotFoundException('Question not found');
     }
 
-    // On ne garde que les réponses correctes
     const correctAnswers = question.answers
       .filter(a => a.isCorrect)
       .map(a => a.text);
 
-    // Comparaison simple (insensible à la casse et aux espaces)
     const isCorrect = correctAnswers.some(
       a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
     );
 
-    return { isCorrect, correctAnswers };
+    let pointsAdded = 0;
+    if (isCorrect) {
+      const pointsPerCorrectAnswer = 2; 
+      const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
+      pointsAdded = pointRecord.value;
+    }
+
+    return { isCorrect, correctAnswers, pointsAdded };
   }
 
   // ---------------- TROUVER LANGUE PAR CODE ----------------
@@ -111,12 +138,9 @@ export class QuestionService {
     return language || null;
   }
 
- async findUserPreference(userId: string) {
-  return this.prisma.userPreference.findFirst({
-    where: { userId },
-  });
+  async findUserPreference(userId: string) {
+    return this.prisma.userPreference.findFirst({
+      where: { userId },
+    });
+  }
 }
-
-}
-
-
