@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { MlService } from './ml.service';
+import { AudioService } from './audio.service';
 
-describe('MlService', () => {
-  let service: MlService;
+describe('AudioService', () => {
+  let service: AudioService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MlService],
+      providers: [AudioService],
     }).compile();
 
-    service = module.get<MlService>(MlService);
+    service = module.get<AudioService>(AudioService);
   });
 
   it('should be defined', () => {

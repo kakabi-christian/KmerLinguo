@@ -18,11 +18,9 @@ import { DivisionModule } from './division/division.module';
 import { ModuleModule } from './module/module.module';
 import { ChapterModule } from './chapter/chapter.module';
 import { LessonModule } from './lesson/lesson.module';
-import { StatistiqueModule } from './statistique/statistique.module';
 import { GoalModule } from './goal/goal.module';
 import { ReferalSourceModule } from './referal-source/referal-source.module';
 import { UserPreferenceModule } from './user-preference/user-preference.module';
-import { MlModule } from './ml/ml.module';
 
 // 🔹 Multer pour upload audio
 import { MulterModule } from '@nestjs/platform-express';
@@ -31,12 +29,14 @@ import { MulterModule } from '@nestjs/platform-express';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { QuestionModule } from './question/question.module';
 import { RankingModule } from './ranking/ranking.module';
-import { StatsModule } from './stats/stats.module';
 import { ProfileModule } from './profile/profile.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { NotificationModule } from './notification/notification.module';
-import { ProgressionModule } from './progression/progression.module';
 import { PointModule } from './point/point.module';
+import { AudioModule } from './audio/audio.module';
+import { ProgressionQuestionModule } from './progression-question/progression-question.module';
+import { LessonProgressModule } from './lesson-progress/lesson-progress.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -54,11 +54,9 @@ import { PointModule } from './point/point.module';
     ModuleModule,
     ChapterModule,
     LessonModule,
-    StatistiqueModule,
     GoalModule,
     ReferalSourceModule,
     UserPreferenceModule,
-    MlModule,
 
     // 🔸 Multer global pour upload fichiers
     MulterModule.register({
@@ -73,12 +71,14 @@ import { PointModule } from './point/point.module';
 
     QuestionModule,
     RankingModule,
-    StatsModule,
     ProfileModule,
     FeedbackModule,
     NotificationModule,
-    ProgressionModule,
     PointModule,
+    AudioModule,
+    ProgressionQuestionModule,
+    LessonProgressModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [

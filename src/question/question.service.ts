@@ -1,8 +1,9 @@
-// question.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto, QuestionType } from './dto/create-question.dto';
 import { PointService } from '../point/point.service'; 
+import { ProgressionQuestionService } from '../progression-question/progression-question.service';
+import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
 import axios from 'axios';
 
 @Injectable()
@@ -10,6 +11,8 @@ export class QuestionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pointService: PointService,
+    private readonly progressionQuestionService: ProgressionQuestionService,
+    private readonly lessonProgressService: LessonProgressService,
   ) {}
 
   // ---------------- CREATION DE QUESTION ----------------
@@ -56,7 +59,7 @@ export class QuestionService {
       for (const a of question.answers) {
         try {
           await axios.post('http://127.0.0.1:8000/audio/answers/', {
-            id: a.id,           // UUID généré par Prisma
+            id: a.id,
             questionId: question.id,
             text: a.text,
             isCorrect: a.isCorrect,
@@ -90,7 +93,7 @@ export class QuestionService {
   async getQuestionById(questionId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
-      include: { answers: true },
+      include: { answers: true, lesson: { include: { questions: true } } },
     });
 
     if (!question) {
@@ -102,32 +105,68 @@ export class QuestionService {
 
   // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ET AJOUTER DES POINTS ----------------
   async checkAnswer(questionId: string, userAnswer: string, userId: string) {
-    const question = await this.prisma.question.findUnique({
-      where: { id: questionId },
-      include: { answers: true },
-    });
+  const question = await this.prisma.question.findUnique({
+    where: { id: questionId },
+    include: { answers: true, lesson: { include: { questions: true } } },
+  });
 
-    if (!question) {
-      throw new NotFoundException('Question not found');
-    }
-
-    const correctAnswers = question.answers
-      .filter(a => a.isCorrect)
-      .map(a => a.text);
-
-    const isCorrect = correctAnswers.some(
-      a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
-    );
-
-    let pointsAdded = 0;
-    if (isCorrect) {
-      const pointsPerCorrectAnswer = 2; 
-      const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
-      pointsAdded = pointRecord.value;
-    }
-
-    return { isCorrect, correctAnswers, pointsAdded };
+  if (!question) {
+    throw new NotFoundException('Question not found');
   }
+
+  // ✅ Déterminer les réponses correctes
+  const correctAnswers = question.answers
+    .filter(a => a.isCorrect)
+    .map(a => a.text);
+
+  const isCorrect = correctAnswers.some(
+    a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
+  );
+
+  // ---------------- AJOUT DE POINTS POUR CETTE QUESTION ----------------
+  let pointsAdded = 0;
+  const pointsPerCorrectAnswer = 2;
+  if (isCorrect) {
+    const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
+    pointsAdded = pointRecord.value;
+  }
+
+  // ---------------- AJOUT DANS PROGRESSION QUESTION ----------------
+  await this.progressionQuestionService.completeQuestion(userId, questionId, {
+    lessonId: question.lessonId,
+    languageId: question.languageId,
+    isCorrect,
+  });
+
+  // ---------------- CALCUL DU TOTAL DES POINTS DE LA LEÇON ----------------
+  const completedLessonQuestions = await this.prisma.progressionQuestion.findMany({
+    where: {
+      userId,
+      lessonId: question.lessonId,
+      completed: true,
+    },
+    select: { isCorrect: true },
+  });
+
+  const totalLessonPoints = completedLessonQuestions.reduce(
+    (acc, q) => acc + (q.isCorrect ? pointsPerCorrectAnswer : 0),
+    0
+  );
+
+  // ---------------- MARQUER LA LEÇON COMPLÈTE SI TOUS LES QUESTIONS TERMINÉES ----------------
+  const totalQuestions = question.lesson.questions.length;
+  if (completedLessonQuestions.length === totalQuestions) {
+    await this.lessonProgressService.completeLesson(userId, question.lessonId, question.languageId);
+  }
+
+  return {
+    isCorrect,
+    correctAnswers,
+    pointsAdded,        // points ajoutés pour cette réponse
+    totalLessonPoints,  // total des points obtenus pour cette leçon
+  };
+}
+
 
   // ---------------- TROUVER LANGUE PAR CODE ----------------
   async findLanguageByCode(code: string) {

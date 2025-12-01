@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,6 +11,7 @@ enum Role {
   ADMIN
   USER
 }
+
 enum QuestionType {
   TEXT
   MULTIPLE_CHOICE
@@ -33,7 +33,7 @@ model User {
   createdAt    DateTime         @default(now())
   lastLogin    DateTime?
 
-  languageId   String?          // clé étrangère optionnelle
+  languageId   String?
   language     Language?        @relation(fields: [languageId], references: [id])
 
   preferences  UserPreference[]
@@ -42,7 +42,10 @@ model User {
   rankings     Ranking[]
   subscriptionsFollowed Subscription[] @relation("followed")
   subscriptionsFollowing Subscription[] @relation("follower")
-  progressions Progression[]
+  
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
+  
   rewards      Reward[]
   feedbacks    Feedback[]
   notifications Notification[]
@@ -58,7 +61,7 @@ model UserPreference {
   targetLanguageId   String
 
   goal               Goal?           @relation(fields: [goalId], references: [id])
-  goalId             String?         
+  goalId             String?
 
   referralSource     ReferralSource? @relation(fields: [referralSourceId], references: [id])
   referralSourceId   String?
@@ -78,17 +81,18 @@ model ReferralSource {
   usersPref UserPreference[]
 }
 
-
 // ------------------ Language ------------------
 model Language {
-  id               String           @id @default(uuid())
+  id               String   @id @default(uuid())
   name             String
   languageCode     String
 
-  users            User[]           // 🔹 relation inverse
+  users            User[]
   userPreferences  UserPreference[]
-  progressions     Progression[]
   questions        Question[]
+
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
 }
 
 // ------------------ Series ------------------
@@ -186,10 +190,11 @@ model Lesson {
   chapterId String
   title     String
   objective String
-  order     Int 
-  questions Question[]
+  order     Int
 
-  progressions Progression[]
+  questions Question[]
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
 }
 
 // ------------------ Question / Answer ------------------
@@ -199,14 +204,16 @@ model Question {
   lessonId     String
   language     Language @relation(fields: [languageId], references: [id])
   languageId   String
+  
   text         String
   audioPath    String?
   imagePath    String?
-  order        Int      // pour organiser les questions dans la leçon
+  order        Int
   type         QuestionType 
-  correctAnswer  String?
-  answers      Answer[] // plusieurs réponses possibles
-  progressions Progression[]
+  correctAnswer String?
+
+  answers      Answer[]
+  progressQuestion ProgressionQuestion[]
 }
 
 model Answer {
@@ -214,14 +221,15 @@ model Answer {
   question   Question @relation(fields: [questionId], references: [id])
   questionId String
   text       String
-  isCorrect  Boolean  // vrai si c'est la bonne réponse
+  isCorrect  Boolean
 }
 
-
-// ------------------ Progression ------------------
-model Progression {
+// --------------------------------------------------------
+// NEW: ProgressionQuestion (1 par question)
+// --------------------------------------------------------
+model ProgressionQuestion {
   id            String   @id @default(uuid())
-  
+
   user          User     @relation(fields: [userId], references: [id])
   userId        String
 
@@ -238,11 +246,36 @@ model Progression {
   userVoicePath String?
   isCorrect     Boolean
   completed     Boolean  @default(false)
+
   answeredAt    DateTime @default(now())
 
   @@index([userId, lessonId, questionId])
+  @@unique([userId, questionId])  // ⭐ important
+
 }
 
+// --------------------------------------------------------
+// NEW: LessonProgress (1 seule par user × leçon)
+// --------------------------------------------------------
+model LessonProgress {
+  id            String   @id @default(uuid())
+
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+
+  lesson        Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId      String
+
+  language      Language @relation(fields: [languageId], references: [id])
+  languageId    String
+
+  isCompleted   Boolean  @default(false)
+  completedAt   DateTime?
+
+  @@unique([userId, lessonId])
+}
+
+// ------------------ Reward ------------------
 model Reward {
   id          String   @id @default(uuid())
   user        User     @relation(fields: [userId], references: [id])
