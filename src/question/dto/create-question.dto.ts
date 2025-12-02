@@ -7,13 +7,14 @@ export enum QuestionType {
   AUDIO_TO_TEXT = 'AUDIO_TO_TEXT',
   AUDIO_TO_TRANSLATION = 'AUDIO_TO_TRANSLATION',
   VOICE_PRONUNCIATION = 'VOICE_PRONUNCIATION',
+  VOICE_TO_TEXT = 'VOICE_TO_TEXT',
 }
 
 // DTO pour les réponses (pour les questions à choix multiple)
 export class AnswerDto {
   @IsString()
   text: string;
-
+  audioPath?: string;  // <-- ajouté
   @IsOptional()
   isCorrect?: boolean;
 }

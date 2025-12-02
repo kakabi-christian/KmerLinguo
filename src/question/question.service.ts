@@ -17,62 +17,80 @@ export class QuestionService {
 
   // ---------------- CREATION DE QUESTION ----------------
   async createQuestion(data: CreateQuestionDto) {
-    const { answers, type, correctAnswer, lessonId, languageId, text, order, audioPath, imagePath } = data;
+  const { answers, type, correctAnswer, lessonId, languageId, text, order, audioPath, imagePath } = data;
 
-    const existingQuestion = await this.prisma.question.findFirst({
-      where: { lessonId, languageId, text },
-    });
-    if (existingQuestion) {
-      throw new BadRequestException('Cette question existe déjà pour cette leçon et langue');
+  const existingQuestion = await this.prisma.question.findFirst({
+    where: { lessonId, languageId, text },
+  });
+  if (existingQuestion) {
+    throw new BadRequestException('Cette question existe déjà pour cette leçon et langue');
+  }
+
+  // ---------------- CREATION DES REPONSES ----------------
+  let answersData;
+
+  if (type === QuestionType.MULTIPLE_CHOICE ||
+      type === QuestionType.AUDIO_TO_TEXT ||
+      type === QuestionType.AUDIO_TO_TRANSLATION) {
+    if (answers && answers.length > 0) {
+      answersData = {
+        create: answers.map(a => ({
+          text: a.text||"",
+          audioPath: a.audioPath, // ajout pour VOICE_TO_TEXT
+          isCorrect: a.isCorrect ?? true,
+        }))
+      };
     }
+  } else if (type === QuestionType.TEXT && correctAnswer) {
+    answersData = {
+      create: { text: correctAnswer, isCorrect: true }
+    };
+  } else if (type === QuestionType.VOICE_TO_TEXT && answers && answers.length > 0) {
+    // Pour VOICE_TO_TEXT, on envoie toujours audioPath
+    answersData = {
+      create: answers.map(a => ({
+        text: a.text || '',        // transcription optionnelle
+        audioPath: a.audioPath,    // audio de la bonne réponse
+        isCorrect: a.isCorrect ?? true,
+      }))
+    };
+  }
 
-    const answersData =
-      (type === QuestionType.MULTIPLE_CHOICE ||
-        type === QuestionType.AUDIO_TO_TEXT ||
-        type === QuestionType.AUDIO_TO_TRANSLATION) &&
-      answers &&
-      answers.length > 0
-        ? { create: answers.map(a => ({ text: a.text, isCorrect: a.isCorrect ?? true })) }
-        : undefined;
+  // ---------------- CREATION DE LA QUESTION ----------------
+  const question = await this.prisma.question.create({
+    data: { 
+      lessonId,
+      languageId,
+      text,
+      order,
+      audioPath,
+      imagePath,
+      type,
+      answers: answersData,
+    },
+    include: { answers: true },
+  });
 
-    const textAnswerData =
-      type === QuestionType.TEXT && correctAnswer
-        ? { create: { text: correctAnswer, isCorrect: true } }
-        : undefined;
-
-    const question = await this.prisma.question.create({
-      data: { 
-        lessonId,
-        languageId,
-        text,
-        order,
-        audioPath,
-        imagePath,
-        type,
-        answers: answersData || textAnswerData,
-      },
-      include: { answers: true },
-    });
-
-    // ---------------- ENVOI DES REPONSES VERS DJANGO ----------------
-    if (question.answers && question.answers.length > 0) {
-      for (const a of question.answers) {
-        try {
-          await axios.post('http://127.0.0.1:8000/audio/answers/', {
-            id: a.id,
-            questionId: question.id,
-            text: a.text,
-            isCorrect: a.isCorrect,
-          });
-          console.log('✅ Réponse envoyée à Django:', a.text);
-        } catch (error) {
-          console.error('❌ Erreur lors de l\'envoi à Django:', error.response?.data || error.message);
-        }
+  // ---------------- ENVOI DES REPONSES VERS DJANGO ----------------
+  if (question.answers && question.answers.length > 0) {
+    for (const a of question.answers) {
+      try {
+        await axios.post('http://127.0.0.1:8000/audio/answers/', {
+          id: a.id,
+          questionId: question.id,
+          text: a.text,
+          audioPath: a.audioPath, // envoi de l'audio
+          isCorrect: a.isCorrect,
+        });
+        console.log('✅ Réponse envoyée à Django:', a.text);
+      } catch (error) {
+        console.error('❌ Erreur lors de l\'envoi à Django:', error.response?.data || error.message);
       }
     }
-
-    return question;
   }
+
+  return question;
+}
 
   // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON EN FONCTION DE LA LANGUE ----------------
   async getQuestionsByLessonAndLanguage(lessonId: string, languageId: string) {
@@ -119,9 +137,9 @@ export class QuestionService {
     .filter(a => a.isCorrect)
     .map(a => a.text);
 
-  const isCorrect = correctAnswers.some(
-    a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
-  );
+  const isCorrect = correctAnswers
+  .filter((a): a is string => !!a) // garde uniquement les strings définies
+  .some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase());
 
   // ---------------- AJOUT DE POINTS POUR CETTE QUESTION ----------------
   let pointsAdded = 0;
