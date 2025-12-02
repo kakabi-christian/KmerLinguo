@@ -19,6 +19,7 @@ enum QuestionType {
   AUDIO_TO_TRANSLATION
   VOICE_PRONUNCIATION
   VOICE_TO_TEXT
+  WORD_BUILDER
 
 }
 
@@ -219,12 +220,13 @@ model Question {
 }
 
 model Answer {
-  id         String   @id @default(uuid())
-  question   Question @relation(fields: [questionId], references: [id])
-  questionId String
-  text       String?
-  audioPath  String?   // <-- ajouté pour les réponses audio
-  isCorrect  Boolean
+  id          String   @id @default(uuid())
+  question    Question @relation(fields: [questionId], references: [id])
+  questionId  String
+  text        String?
+  audioPath   String?      // <-- pour les réponses audio
+  wordOptions String[]      // 👈 NOUVEAU : tableau de mots pour construire la phrase
+  isCorrect   Boolean
 }
 
 
