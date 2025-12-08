@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { join } from 'path';
+import { ServeStaticModule } from '@nestjs/serve-static';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -15,11 +18,9 @@ import { DivisionModule } from './division/division.module';
 import { ModuleModule } from './module/module.module';
 import { ChapterModule } from './chapter/chapter.module';
 import { LessonModule } from './lesson/lesson.module';
-import { StatistiqueModule } from './statistique/statistique.module';
 import { GoalModule } from './goal/goal.module';
 import { ReferalSourceModule } from './referal-source/referal-source.module';
 import { UserPreferenceModule } from './user-preference/user-preference.module';
-import { MlModule } from './ml/ml.module';
 
 // 🔹 Multer pour upload audio
 import { MulterModule } from '@nestjs/platform-express';
@@ -28,11 +29,15 @@ import { MulterModule } from '@nestjs/platform-express';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { QuestionModule } from './question/question.module';
 import { RankingModule } from './ranking/ranking.module';
-import { StatsModule } from './stats/stats.module';
 import { ProfileModule } from './profile/profile.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { NotificationModule } from './notification/notification.module';
-import { ProgressionModule } from './progression/progression.module';
+import { PointModule } from './point/point.module';
+import { AudioModule } from './audio/audio.module';
+import { ProgressionQuestionModule } from './progression-question/progression-question.module';
+import { LessonProgressModule } from './lesson-progress/lesson-progress.module';
+import { StatsModule } from './stats/stats.module';
+import { FollowModule } from './follow/follow.module';
 
 @Module({
   imports: [
@@ -50,32 +55,32 @@ import { ProgressionModule } from './progression/progression.module';
     ModuleModule,
     ChapterModule,
     LessonModule,
-    StatistiqueModule,
     GoalModule,
     ReferalSourceModule,
     UserPreferenceModule,
-
-    // 🔸 Module ML pour analyse audio
-    MlModule,
 
     // 🔸 Multer global pour upload fichiers
     MulterModule.register({
       dest: './uploads', // dossier temporaire pour stocker les fichiers audio
     }),
 
+    // 🔸 Servir le dossier uploads en statique pour accès depuis Flutter
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads', // accessible via http://localhost:3000/uploads/xxx.mp3
+    }),
+
     QuestionModule,
-
     RankingModule,
-
-    StatsModule,
-
     ProfileModule,
-
     FeedbackModule,
-
     NotificationModule,
-
-    ProgressionModule,
+    PointModule,
+    AudioModule,
+    ProgressionQuestionModule,
+    LessonProgressModule,
+    StatsModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [

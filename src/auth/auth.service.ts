@@ -145,31 +145,59 @@ async verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{ message: string; redirect
   }
 
   // ✅ Connexion de l'utilisateur
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+async login(loginDto: LoginDto) {
+  const { email, password } = loginDto;
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) throw new UnauthorizedException('Invalid credentials.');
+  const user = await this.prisma.user.findUnique({
+    where: { email },
+    include: {
+      preferences: {
+        include: { targetLanguage: true }
+      }
+    }
+  });
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) throw new UnauthorizedException('Invalid credentials.');
+  if (!user) throw new UnauthorizedException('Mot de passe invalide.');
 
-    if (!user.isVerified)
-      throw new BadRequestException('Please verify your account first.');
+  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch) throw new UnauthorizedException('Mot de passe invalide.');
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const token = await this.jwtService.signAsync(payload);
+  if (!user.isVerified)
+    throw new BadRequestException('Veuillez vérifier votre compte avant de vous connecter.');
 
-    return {
-      access_token: token,
-      user: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        Role:user.role,
-      },
-    };
-  }
+  // 🔹 Récupération de la langue de l’utilisateur
+  const pref = user.preferences?.[0]; // première préférence si elle existe
+  const lang = pref?.targetLanguage
+    ? {
+        id: pref.targetLanguage.id,
+        name: pref.targetLanguage.name,
+        code: pref.targetLanguage.languageCode,
+      }
+    : null;
+
+  // 🔹 Payload du token avec la langue
+  const payload = { 
+    sub: user.id, 
+    email: user.email, 
+    role: user.role,
+    languageId: lang?.id,       // id de la langue
+    languageCode: lang?.code,   // code de la langue
+  };
+  const token = await this.jwtService.signAsync(payload);
+
+  return {
+    access_token: token,
+    user: {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      language: lang, // pour affichage côté Flutter
+    }
+  };
+}
+
+
 }

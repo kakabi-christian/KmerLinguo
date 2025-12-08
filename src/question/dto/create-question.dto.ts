@@ -7,12 +7,24 @@ export enum QuestionType {
   AUDIO_TO_TEXT = 'AUDIO_TO_TEXT',
   AUDIO_TO_TRANSLATION = 'AUDIO_TO_TRANSLATION',
   VOICE_PRONUNCIATION = 'VOICE_PRONUNCIATION',
+  VOICE_TO_TEXT = 'VOICE_TO_TEXT',
+  WORD_BUILDER = 'WORD_BUILDER', // ✅ Déjà présent
 }
 
 // DTO pour les réponses (pour les questions à choix multiple)
 export class AnswerDto {
+  @IsOptional() // 👈 Rendre optionnel pour WORD_BUILDER
   @IsString()
-  text: string;
+  text?: string; // 👈 Ajout du "?" pour le rendre optionnel
+
+  @IsOptional()
+  @IsString()
+  audioPath?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true }) // 👈 NOUVEAU : tableau de strings
+  wordOptions?: string[]; // 👈 NOUVEAU : les mots pour WORD_BUILDER
 
   @IsOptional()
   isCorrect?: boolean;
@@ -43,7 +55,7 @@ export class CreateQuestionDto {
   @IsEnum(QuestionType)
   type: QuestionType;
 
-  // Réponses pour MULTIPLE_CHOICE
+  // Réponses pour MULTIPLE_CHOICE, WORD_BUILDER, etc.
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

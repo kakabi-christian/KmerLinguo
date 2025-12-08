@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,38 +11,54 @@ enum Role {
   ADMIN
   USER
 }
+
 enum QuestionType {
   TEXT
   MULTIPLE_CHOICE
   AUDIO_TO_TEXT
   AUDIO_TO_TRANSLATION
   VOICE_PRONUNCIATION
+  VOICE_TO_TEXT
+  WORD_BUILDER
+
 }
 
 // ------------------ Users ------------------
 model User {
-  id          String           @id @default(uuid())
-  firstName   String
-  lastName    String
-  email       String           @unique
-  phone       String           @unique
+  id           String           @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String           @unique
+  phone        String           @unique
   passwordHash String
-  isVerified  Boolean          @default(false)
-  role        Role             @default(USER)
-  createdAt   DateTime         @default(now())
-  lastLogin   DateTime?
+  isVerified   Boolean          @default(false)
+  role         Role             @default(USER)
+  createdAt    DateTime         @default(now())
+  lastLogin    DateTime?
 
-  preferences UserPreference[]
-  series      Series[]
-  points      Point[]
-  rankings    Ranking[]
-  subscriptionsFollowed Subscription[] @relation("followed")
-  subscriptionsFollowing Subscription[] @relation("follower")
-  progressions Progression[]
-  rewards     Reward[]
-  feedbacks   Feedback[]
+  languageId   String?
+  language     Language?        @relation(fields: [languageId], references: [id])
+
+  preferences  UserPreference[]
+  series       Series[]
+  points       Point[]
+  rankings     Ranking[]
+  followers    UserFollow[]     @relation("following")  // Les personnes qui ME SUIVENT (mes abonnés)
+  following    UserFollow[]     @relation("follower")   // Les personnes que JE SUIS (mes abonnements)
+  
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
+  
+  rewards      Reward[]
+  feedbacks    Feedback[]
   notifications Notification[]
+
+  // --- Champs pour streak ---
+  currentStreak  Int      @default(0)     // streak actuel de jours consécutifs
+  maxStreak      Int       @default(0)     // streak maximum atteint
+  lastActivityAt DateTime?                 // date de la dernière activité
 }
+
 
 // ------------------ UserPreference ------------------
 model UserPreference {
@@ -55,7 +70,7 @@ model UserPreference {
   targetLanguageId   String
 
   goal               Goal?           @relation(fields: [goalId], references: [id])
-  goalId             String?         
+  goalId             String?
 
   referralSource     ReferralSource? @relation(fields: [referralSourceId], references: [id])
   referralSourceId   String?
@@ -75,18 +90,18 @@ model ReferralSource {
   usersPref UserPreference[]
 }
 
-
 // ------------------ Language ------------------
 model Language {
-  id               String           @id @default(uuid())
+  id               String   @id @default(uuid())
   name             String
   languageCode     String
 
+  users            User[]
   userPreferences  UserPreference[]
+  questions        Question[]
 
-  progressions Progression[]
-
-  questions Question[]
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
 }
 
 // ------------------ Series ------------------
@@ -129,7 +144,7 @@ model Ranking {
 model Point {
   id        String   @id @default(uuid())
   user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  userId    String @unique
   value     Int
   updatedAt DateTime @default(now())
 
@@ -149,16 +164,28 @@ model Notification {
 }
 
 // ------------------ Subscription ------------------
-model Subscription {
-  id             String   @id @default(uuid())
-  user           User     @relation("follower", fields: [userId], references: [id])
-  userId         String
-  followedUser   User     @relation("followed", fields: [followedUserId], references: [id])
-  followedUserId String
-  subscribedAt   DateTime @default(now())
-  isActive       Boolean  @default(true)
+model UserFollow {
+  id          String   @id @default(uuid())
+  
+  // L'utilisateur qui SUIT (celui qui clique sur "Suivre")
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  
+  // L'utilisateur qui EST SUIVI (celui qui reçoit un follower)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+  
+  followedAt  DateTime @default(now())  // Date du suivi
+  isActive    Boolean  @default(true)   // Pour gérer les unfollow
+  
+  // Un user ne peut pas suivre 2 fois la même personne
+  @@unique([followerId, followingId])
+  
+  // Index pour améliorer les performances
+  @@index([followerId])
+  @@index([followingId])
+  @@index([isActive])
 }
-
 // ------------------ Module / Chapter / Lesson ------------------
 model Module {
   id          String   @id @default(uuid())
@@ -184,10 +211,11 @@ model Lesson {
   chapterId String
   title     String
   objective String
-  order     Int 
-  questions Question[]
+  order     Int
 
-  progressions Progression[]
+  questions Question[]
+  progressQuestion ProgressionQuestion[]
+  lessonProgress   LessonProgress[]
 }
 
 // ------------------ Question / Answer ------------------
@@ -197,29 +225,35 @@ model Question {
   lessonId     String
   language     Language @relation(fields: [languageId], references: [id])
   languageId   String
+  
   text         String
   audioPath    String?
   imagePath    String?
-  order        Int      // pour organiser les questions dans la leçon
+  order        Int
   type         QuestionType 
-  correctAnswer  String?
-  answers      Answer[] // plusieurs réponses possibles
-  progressions Progression[]
+  correctAnswer String?
+
+  answers      Answer[]
+  progressQuestion ProgressionQuestion[]
 }
 
 model Answer {
-  id         String   @id @default(uuid())
-  question   Question @relation(fields: [questionId], references: [id])
-  questionId String
-  text       String
-  isCorrect  Boolean  // vrai si c'est la bonne réponse
+  id          String   @id @default(uuid())
+  question    Question @relation(fields: [questionId], references: [id])
+  questionId  String
+  text        String?
+  audioPath   String?      // <-- pour les réponses audio
+  wordOptions String[]      // 👈 NOUVEAU : tableau de mots pour construire la phrase
+  isCorrect   Boolean
 }
 
 
-// ------------------ Progression ------------------
-model Progression {
+// --------------------------------------------------------
+// NEW: ProgressionQuestion (1 par question)
+// --------------------------------------------------------
+model ProgressionQuestion {
   id            String   @id @default(uuid())
-  
+
   user          User     @relation(fields: [userId], references: [id])
   userId        String
 
@@ -236,11 +270,36 @@ model Progression {
   userVoicePath String?
   isCorrect     Boolean
   completed     Boolean  @default(false)
+
   answeredAt    DateTime @default(now())
 
   @@index([userId, lessonId, questionId])
+  @@unique([userId, questionId])  // ⭐ important
+
 }
 
+// --------------------------------------------------------
+// NEW: LessonProgress (1 seule par user × leçon)
+// --------------------------------------------------------
+model LessonProgress {
+  id            String   @id @default(uuid())
+
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+
+  lesson        Lesson   @relation(fields: [lessonId], references: [id])
+  lessonId      String
+
+  language      Language @relation(fields: [languageId], references: [id])
+  languageId    String
+
+  isCompleted   Boolean  @default(false)
+  completedAt   DateTime?
+
+  @@unique([userId, lessonId])
+}
+
+// ------------------ Reward ------------------
 model Reward {
   id          String   @id @default(uuid())
   user        User     @relation(fields: [userId], references: [id])

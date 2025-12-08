@@ -23,18 +23,25 @@ export class LessonService {
     });
   }
 
-  async findByChapter(chapterId: string) {
-  const chapter = await this.prisma.chapter.findUnique({
-    where: { id: chapterId },
-  });
+  async findByChapter(chapterId: string, userLanguageId: string) {
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+    });
 
-  if (!chapter) throw new NotFoundException('Chapter not found');
+    if (!chapter) throw new NotFoundException('Chapter not found');
 
-  return this.prisma.lesson.findMany({
-    where: { chapterId },
-    orderBy: { order: 'asc' },
-  });
-}
+    return this.prisma.lesson.findMany({
+      where: { chapterId },
+      orderBy: { order: 'asc' },
+      include: {
+        questions: {
+          where: { languageId: userLanguageId },
+          orderBy: { order: 'asc' },
+          include: { answers: true },
+        },
+      },
+    });
+  }
 
   async findOne(id: string) {
     const lesson = await this.prisma.lesson.findUnique({

@@ -1,16 +1,24 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto, QuestionType } from './dto/create-question.dto';
+import { PointService } from '../point/point.service'; 
+import { ProgressionQuestionService } from '../progression-question/progression-question.service';
+import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
+import axios from 'axios';
 
 @Injectable()
 export class QuestionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pointService: PointService,
+    private readonly progressionQuestionService: ProgressionQuestionService,
+    private readonly lessonProgressService: LessonProgressService,
+  ) {}
 
   // ---------------- CREATION DE QUESTION ----------------
   async createQuestion(data: CreateQuestionDto) {
     const { answers, type, correctAnswer, lessonId, languageId, text, order, audioPath, imagePath } = data;
 
-    // Vérifier si la question existe déjà pour cette leçon et langue
     const existingQuestion = await this.prisma.question.findFirst({
       where: { lessonId, languageId, text },
     });
@@ -18,24 +26,54 @@ export class QuestionService {
       throw new BadRequestException('Cette question existe déjà pour cette leçon et langue');
     }
 
-    // Préparer les réponses pour MULTIPLE_CHOICE, AUDIO_TO_TEXT, AUDIO_TO_TRANSLATION
-    const answersData =
-      (type === QuestionType.MULTIPLE_CHOICE ||
+    // ---------------- CREATION DES REPONSES ----------------
+    let answersData;
+
+    if (type === QuestionType.MULTIPLE_CHOICE ||
         type === QuestionType.AUDIO_TO_TEXT ||
-        type === QuestionType.AUDIO_TO_TRANSLATION) &&
-      answers &&
-      answers.length > 0
-        ? { create: answers.map(a => ({ text: a.text, isCorrect: a.isCorrect ?? true })) }
-        : undefined;
+        type === QuestionType.AUDIO_TO_TRANSLATION) {
+      if (answers && answers.length > 0) {
+        answersData = {
+          create: answers.map(a => ({
+            text: a.text || "",
+            audioPath: a.audioPath,
+            wordOptions: a.wordOptions || [], // 👈 NOUVEAU
+            isCorrect: a.isCorrect ?? true,
+          }))
+        };
+      }
+    } else if (type === QuestionType.TEXT && correctAnswer) {
+      answersData = {
+        create: { 
+          text: correctAnswer, 
+          wordOptions: [], // 👈 NOUVEAU (vide pour TEXT)
+          isCorrect: true 
+        }
+      };
+    } else if (type === QuestionType.VOICE_TO_TEXT && answers && answers.length > 0) {
+      answersData = {
+        create: answers.map(a => ({
+          text: a.text || '',
+          audioPath: a.audioPath,
+          wordOptions: a.wordOptions || [], // 👈 NOUVEAU
+          isCorrect: a.isCorrect ?? true,
+        }))
+      };
+    } else if (type === QuestionType.WORD_BUILDER && answers && answers.length > 0) {
+      // 👈 NOUVEAU CAS POUR WORD_BUILDER
+      answersData = {
+        create: answers.map(a => ({
+          text: a.text || '', // La phrase correcte complète
+          audioPath: a.audioPath,
+          wordOptions: a.wordOptions || [], // 👈 Les mots à afficher (OBLIGATOIRE)
+          isCorrect: a.isCorrect ?? true,
+        }))
+      };
+    }
 
-    // Pour les questions TEXT, on crée une réponse unique
-    const textAnswerData =
-      type === QuestionType.TEXT && correctAnswer
-        ? { create: { text: correctAnswer, isCorrect: true } }
-        : undefined;
-
-    return this.prisma.question.create({
-      data: {
+    // ---------------- CREATION DE LA QUESTION ----------------
+    const question = await this.prisma.question.create({
+      data: { 
         lessonId,
         languageId,
         text,
@@ -43,26 +81,53 @@ export class QuestionService {
         audioPath,
         imagePath,
         type,
-        answers: answersData || textAnswerData,
+        answers: answersData,
       },
       include: { answers: true },
     });
+
+    // ---------------- ENVOI DES REPONSES VERS DJANGO ----------------
+    if (question.answers && question.answers.length > 0) {
+      for (const a of question.answers) {
+        try {
+          await axios.post('http://127.0.0.1:8000/audio/answers/', {
+            id: a.id,
+            questionId: question.id,
+            text: a.text,
+            audioPath: a.audioPath,
+            wordOptions: a.wordOptions, // 👈 NOUVEAU
+            isCorrect: a.isCorrect,
+          });
+          console.log('✅ Réponse envoyée à Django:', a.text);
+        } catch (error) {
+          console.error('❌ Erreur lors de l\'envoi à Django:', error.response?.data || error.message);
+        }
+      }
+    }
+
+    return question;
   }
 
-  // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON ----------------
-  async getQuestionsByLesson(lessonId: string) {
-    return this.prisma.question.findMany({
-      where: { lessonId },
+  // ---------------- RECUPERER LES QUESTIONS D'UNE LEÇON EN FONCTION DE LA LANGUE ----------------
+  async getQuestionsByLessonAndLanguage(lessonId: string, languageId: string) {
+    const questions = await this.prisma.question.findMany({
+      where: { lessonId, languageId },
       include: { answers: true },
       orderBy: { order: 'asc' },
     });
+
+    if (!questions || questions.length === 0) {
+      throw new NotFoundException('Aucune question disponible pour cette leçon et cette langue');
+    }
+
+    return questions;
   }
 
   // ---------------- RECUPERER UNE QUESTION PAR ID ----------------
   async getQuestionById(questionId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
-      include: { answers: true },
+      include: { answers: true, lesson: { include: { questions: true } } },
     });
 
     if (!question) {
@@ -72,27 +137,154 @@ export class QuestionService {
     return question;
   }
 
-  // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ----------------
-  async checkAnswer(questionId: string, userAnswer: string) {
-    const question = await this.prisma.question.findUnique({
-      where: { id: questionId },
-      include: { answers: true },
-    });
+  // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ET AJOUTER DES POINTS ----------------
+  async checkAnswer(questionId: string, userAnswer: string, userId: string) {
+  const question = await this.prisma.question.findUnique({
+    where: { id: questionId },
+    include: { answers: true, lesson: { include: { questions: true } } },
+  });
 
-    if (!question) {
-      throw new NotFoundException('Question not found');
-    }
-
-    // On ne garde que les réponses correctes
-    const correctAnswers = question.answers
-      .filter(a => a.isCorrect)
-      .map(a => a.text);
-
-    // Comparaison simple (insensible à la casse et aux espaces)
-    const isCorrect = correctAnswers.some(
-      a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase()
-    );
-
-    return { isCorrect, correctAnswers };
+  if (!question) {
+    throw new NotFoundException('Question not found');
   }
+
+  // ---------------- DÉTERMINER SI LA RÉPONSE EST CORRECTE ----------------
+  const correctAnswers = question.answers
+    .filter(a => a.isCorrect)
+    .map(a => a.text);
+
+  const isCorrect = correctAnswers
+    .filter((a): a is string => !!a)
+    .some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase());
+
+  // ---------------- AJOUT DE POINTS ----------------
+  let pointsAdded = 0;
+  const pointsPerCorrectAnswer = 2;
+
+  if (isCorrect) {
+    const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
+    pointsAdded = pointRecord.value;
+  }
+
+  // ---------------- PROGRESSION QUESTION ----------------
+  await this.progressionQuestionService.completeQuestion(userId, questionId, {
+    lessonId: question.lessonId,
+    languageId: question.languageId,
+    isCorrect,
+  });
+
+  // ---------------- TOTAL POINTS DE LA LEÇON ----------------
+  const completedLessonQuestions = await this.prisma.progressionQuestion.findMany({
+    where: {
+      userId,
+      lessonId: question.lessonId,
+      completed: true,
+    },
+    select: { isCorrect: true },
+  });
+
+  const totalLessonPoints = completedLessonQuestions.reduce(
+    (acc, q) => acc + (q.isCorrect ? pointsPerCorrectAnswer : 0),
+    0
+  );
+
+  // ---------------- STREAK ----------------
+  let newStreak = 0;
+  let newMaxStreak = 0;
+
+  const totalQuestions = question.lesson.questions.length;
+
+  if (completedLessonQuestions.length === totalQuestions) {
+    await this.lessonProgressService.completeLesson(userId, question.lessonId, question.languageId);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user) {
+      const today = new Date();
+      const lastActivity = user.lastActivityAt ? new Date(user.lastActivityAt) : null;
+
+      const currentStreak = user.currentStreak ?? 0;
+      const maxStreak = user.maxStreak ?? 0;
+
+      newStreak = 1;
+
+      if (lastActivity) {
+        const diffDays = Math.floor(
+          (today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (diffDays === 1) {
+          newStreak = currentStreak + 1;
+        } else if (diffDays === 0) {
+          newStreak = currentStreak;
+        } else {
+          newStreak = 1;
+        }
+      }
+
+      newMaxStreak = Math.max(maxStreak, newStreak);
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          currentStreak: newStreak,
+          maxStreak: newMaxStreak,
+          lastActivityAt: today,
+        },
+      });
+    }
+  }
+
+  // ---------------- RETOURNER LA STREAK AU FRONTEND ----------------
+  return {
+    isCorrect,
+    correctAnswers,
+    pointsAdded,
+    totalLessonPoints,
+
+    currentStreak: newStreak,
+    maxStreak: newMaxStreak,
+  };
+}
+
+  // ---------------- TROUVER LANGUE PAR CODE ----------------
+  async findLanguageByCode(code: string) {
+    if (!code) return null;
+    const language = await this.prisma.language.findFirst({
+      where: { languageCode: code },
+    });
+    return language || null;
+  }
+
+  async findUserPreference(userId: string) {
+    return this.prisma.userPreference.findFirst({
+      where: { userId },
+    });
+  }
+  // Retourne { current: number, max: number, lastActivityAt: Date | null }
+  async getUserStreak(userId: string): Promise<{ current: number; max: number; lastActivityAt: Date | null }> {
+  if (!userId) {
+    throw new BadRequestException('userId is required');
+  }
+
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      currentStreak: true,
+      maxStreak: true,
+      lastActivityAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  return {
+    current: user.currentStreak ?? 0,
+    max: user.maxStreak ?? 0,
+    lastActivityAt: user.lastActivityAt ?? null,
+  };
+}
+
 }
