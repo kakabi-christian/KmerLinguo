@@ -103,5 +103,12 @@ async checkAnswer(
 
   return this.questionService.checkAnswer(questionId, userAnswer, userId);
 }
+@Get('streak/me')
+  @Roles('USER')
+  async getMyStreak(@Req() req: any) {
+    const userId = req.user.id;
+
+    return this.questionService.getUserStreak(userId);
+  }
 
 }

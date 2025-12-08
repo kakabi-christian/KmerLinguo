@@ -139,67 +139,113 @@ export class QuestionService {
 
   // ---------------- VERIFIER LA REPONSE DE L'UTILISATEUR ET AJOUTER DES POINTS ----------------
   async checkAnswer(questionId: string, userAnswer: string, userId: string) {
-    const question = await this.prisma.question.findUnique({
-      where: { id: questionId },
-      include: { answers: true, lesson: { include: { questions: true } } },
-    });
+  const question = await this.prisma.question.findUnique({
+    where: { id: questionId },
+    include: { answers: true, lesson: { include: { questions: true } } },
+  });
 
-    if (!question) {
-      throw new NotFoundException('Question not found');
-    }
-
-    // ✅ Déterminer les réponses correctes
-    const correctAnswers = question.answers
-      .filter(a => a.isCorrect)
-      .map(a => a.text);
-
-    const isCorrect = correctAnswers
-      .filter((a): a is string => !!a)
-      .some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase());
-
-    // ---------------- AJOUT DE POINTS POUR CETTE QUESTION ----------------
-    let pointsAdded = 0;
-    const pointsPerCorrectAnswer = 2;
-    if (isCorrect) {
-      const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
-      pointsAdded = pointRecord.value;
-    }
-
-    // ---------------- AJOUT DANS PROGRESSION QUESTION ----------------
-    await this.progressionQuestionService.completeQuestion(userId, questionId, {
-      lessonId: question.lessonId,
-      languageId: question.languageId,
-      isCorrect,
-    });
-
-    // ---------------- CALCUL DU TOTAL DES POINTS DE LA LEÇON ----------------
-    const completedLessonQuestions = await this.prisma.progressionQuestion.findMany({
-      where: {
-        userId,
-        lessonId: question.lessonId,
-        completed: true,
-      },
-      select: { isCorrect: true },
-    });
-
-    const totalLessonPoints = completedLessonQuestions.reduce(
-      (acc, q) => acc + (q.isCorrect ? pointsPerCorrectAnswer : 0),
-      0
-    );
-
-    // ---------------- MARQUER LA LEÇON COMPLÈTE SI TOUS LES QUESTIONS TERMINÉES ----------------
-    const totalQuestions = question.lesson.questions.length;
-    if (completedLessonQuestions.length === totalQuestions) {
-      await this.lessonProgressService.completeLesson(userId, question.lessonId, question.languageId);
-    }
-
-    return {
-      isCorrect,
-      correctAnswers,
-      pointsAdded,
-      totalLessonPoints,
-    };
+  if (!question) {
+    throw new NotFoundException('Question not found');
   }
+
+  // ---------------- DÉTERMINER SI LA RÉPONSE EST CORRECTE ----------------
+  const correctAnswers = question.answers
+    .filter(a => a.isCorrect)
+    .map(a => a.text);
+
+  const isCorrect = correctAnswers
+    .filter((a): a is string => !!a)
+    .some(a => a.trim().toLowerCase() === userAnswer.trim().toLowerCase());
+
+  // ---------------- AJOUT DE POINTS ----------------
+  let pointsAdded = 0;
+  const pointsPerCorrectAnswer = 2;
+
+  if (isCorrect) {
+    const pointRecord = await this.pointService.addPoints(userId, pointsPerCorrectAnswer);
+    pointsAdded = pointRecord.value;
+  }
+
+  // ---------------- PROGRESSION QUESTION ----------------
+  await this.progressionQuestionService.completeQuestion(userId, questionId, {
+    lessonId: question.lessonId,
+    languageId: question.languageId,
+    isCorrect,
+  });
+
+  // ---------------- TOTAL POINTS DE LA LEÇON ----------------
+  const completedLessonQuestions = await this.prisma.progressionQuestion.findMany({
+    where: {
+      userId,
+      lessonId: question.lessonId,
+      completed: true,
+    },
+    select: { isCorrect: true },
+  });
+
+  const totalLessonPoints = completedLessonQuestions.reduce(
+    (acc, q) => acc + (q.isCorrect ? pointsPerCorrectAnswer : 0),
+    0
+  );
+
+  // ---------------- STREAK ----------------
+  let newStreak = 0;
+  let newMaxStreak = 0;
+
+  const totalQuestions = question.lesson.questions.length;
+
+  if (completedLessonQuestions.length === totalQuestions) {
+    await this.lessonProgressService.completeLesson(userId, question.lessonId, question.languageId);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user) {
+      const today = new Date();
+      const lastActivity = user.lastActivityAt ? new Date(user.lastActivityAt) : null;
+
+      const currentStreak = user.currentStreak ?? 0;
+      const maxStreak = user.maxStreak ?? 0;
+
+      newStreak = 1;
+
+      if (lastActivity) {
+        const diffDays = Math.floor(
+          (today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (diffDays === 1) {
+          newStreak = currentStreak + 1;
+        } else if (diffDays === 0) {
+          newStreak = currentStreak;
+        } else {
+          newStreak = 1;
+        }
+      }
+
+      newMaxStreak = Math.max(maxStreak, newStreak);
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          currentStreak: newStreak,
+          maxStreak: newMaxStreak,
+          lastActivityAt: today,
+        },
+      });
+    }
+  }
+
+  // ---------------- RETOURNER LA STREAK AU FRONTEND ----------------
+  return {
+    isCorrect,
+    correctAnswers,
+    pointsAdded,
+    totalLessonPoints,
+
+    currentStreak: newStreak,
+    maxStreak: newMaxStreak,
+  };
+}
 
   // ---------------- TROUVER LANGUE PAR CODE ----------------
   async findLanguageByCode(code: string) {
@@ -215,4 +261,30 @@ export class QuestionService {
       where: { userId },
     });
   }
+  // Retourne { current: number, max: number, lastActivityAt: Date | null }
+  async getUserStreak(userId: string): Promise<{ current: number; max: number; lastActivityAt: Date | null }> {
+  if (!userId) {
+    throw new BadRequestException('userId is required');
+  }
+
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      currentStreak: true,
+      maxStreak: true,
+      lastActivityAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+
+  return {
+    current: user.currentStreak ?? 0,
+    max: user.maxStreak ?? 0,
+    lastActivityAt: user.lastActivityAt ?? null,
+  };
+}
+
 }

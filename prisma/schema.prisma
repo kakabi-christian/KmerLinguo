@@ -43,8 +43,8 @@ model User {
   series       Series[]
   points       Point[]
   rankings     Ranking[]
-  subscriptionsFollowed Subscription[] @relation("followed")
-  subscriptionsFollowing Subscription[] @relation("follower")
+  followers    UserFollow[]     @relation("following")  // Les personnes qui ME SUIVENT (mes abonnés)
+  following    UserFollow[]     @relation("follower")   // Les personnes que JE SUIS (mes abonnements)
   
   progressQuestion ProgressionQuestion[]
   lessonProgress   LessonProgress[]
@@ -52,7 +52,13 @@ model User {
   rewards      Reward[]
   feedbacks    Feedback[]
   notifications Notification[]
+
+  // --- Champs pour streak ---
+  currentStreak  Int      @default(0)     // streak actuel de jours consécutifs
+  maxStreak      Int       @default(0)     // streak maximum atteint
+  lastActivityAt DateTime?                 // date de la dernière activité
 }
+
 
 // ------------------ UserPreference ------------------
 model UserPreference {
@@ -158,16 +164,28 @@ model Notification {
 }
 
 // ------------------ Subscription ------------------
-model Subscription {
-  id             String   @id @default(uuid())
-  user           User     @relation("follower", fields: [userId], references: [id])
-  userId         String
-  followedUser   User     @relation("followed", fields: [followedUserId], references: [id])
-  followedUserId String
-  subscribedAt   DateTime @default(now())
-  isActive       Boolean  @default(true)
+model UserFollow {
+  id          String   @id @default(uuid())
+  
+  // L'utilisateur qui SUIT (celui qui clique sur "Suivre")
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String
+  
+  // L'utilisateur qui EST SUIVI (celui qui reçoit un follower)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String
+  
+  followedAt  DateTime @default(now())  // Date du suivi
+  isActive    Boolean  @default(true)   // Pour gérer les unfollow
+  
+  // Un user ne peut pas suivre 2 fois la même personne
+  @@unique([followerId, followingId])
+  
+  // Index pour améliorer les performances
+  @@index([followerId])
+  @@index([followingId])
+  @@index([isActive])
 }
-
 // ------------------ Module / Chapter / Lesson ------------------
 model Module {
   id          String   @id @default(uuid())

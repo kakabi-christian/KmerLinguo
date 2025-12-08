@@ -24,8 +24,35 @@ export class StatsService {
         rewards: true,
         feedbacks: true,
         notifications: true,
-        subscriptionsFollowed: true,
-        subscriptionsFollowing: true,
+        
+        // 👇 MODIFIÉ : Nouveaux noms des relations
+        followers: {
+          include: {
+            follower: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          where: { isActive: true },
+        },
+        following: {
+          include: {
+            following: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          where: { isActive: true },
+        },
+        
         series: {
           orderBy: { date: 'desc' },
           take: 1,
@@ -74,6 +101,11 @@ export class StatsService {
     // 4️⃣ SERIES / STREAKS
     // ---------------------------------------------
     const series = user.series[0] ?? null;
+    const streakStats = {
+      currentStreak: user.currentStreak,
+      maxStreak: user.maxStreak,
+      lastActivityAt: user.lastActivityAt,
+    };
 
     // ---------------------------------------------
     // 5️⃣ REWARDS
@@ -115,12 +147,29 @@ export class StatsService {
     };
 
     // ---------------------------------------------
-    // 8️⃣ RELATIONS SOCIALES
+    // 8️⃣ RELATIONS SOCIALES (FOLLOW/FOLLOWERS)
     // ---------------------------------------------
-    const subscriptionStats = {
-      followers: user.subscriptionsFollowed.length,
-      following: user.subscriptionsFollowing.length,
-      activeFollowings: user.subscriptionsFollowing.filter((s) => s.isActive).length,
+    // 👇 MODIFIÉ : Nouveau système de suivi
+    const followStats = {
+      // Nombre de personnes qui ME suivent (mes abonnés)
+      followersCount: user.followers.length,
+      
+      // Nombre de personnes que JE suis (mes abonnements)
+      followingCount: user.following.length,
+      
+      // Liste des followers avec leurs infos
+      followersList: user.followers.map((f) => ({
+        id: f.follower.id,
+        name: `${f.follower.firstName} ${f.follower.lastName}`,
+        followedAt: f.followedAt,
+      })),
+      
+      // Liste des personnes que je suis
+      followingList: user.following.map((f) => ({
+        id: f.following.id,
+        name: `${f.following.firstName} ${f.following.lastName}`,
+        followedAt: f.followedAt,
+      })),
     };
 
     // ---------------------------------------------
@@ -131,6 +180,9 @@ export class StatsService {
         id: user.id,
         firstName: user.firstName,
         lastName: user.lastName,
+        email: user.email,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin,
       },
 
       points: { totalPoints },
@@ -146,6 +198,9 @@ export class StatsService {
         : null,
 
       series,
+      
+      // 👇 AJOUTÉ : Stats de streak
+      streak: streakStats,
 
       progression: {
         totalAnswered,
@@ -159,7 +214,9 @@ export class StatsService {
       rewards: rewardStats,
       feedback: feedbackStats,
       notifications: notificationStats,
-      subscriptions: subscriptionStats,
+      
+      // 👇 MODIFIÉ : Nouveau nom et structure enrichie
+      social: followStats,
     };
   }
 }

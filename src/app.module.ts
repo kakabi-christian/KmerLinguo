@@ -37,6 +37,7 @@ import { AudioModule } from './audio/audio.module';
 import { ProgressionQuestionModule } from './progression-question/progression-question.module';
 import { LessonProgressModule } from './lesson-progress/lesson-progress.module';
 import { StatsModule } from './stats/stats.module';
+import { FollowModule } from './follow/follow.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { StatsModule } from './stats/stats.module';
     ProgressionQuestionModule,
     LessonProgressModule,
     StatsModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [
